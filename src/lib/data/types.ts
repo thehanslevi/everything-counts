@@ -34,7 +34,8 @@ export interface User {
 export interface Log {
   id: string;
   userId: string; // who logged it
-  shared: boolean; // true once promoted to the feed (e.g. by adding a take)
+  shared: boolean; // public by default; the flag stays for a future private opt-out
+  workId: string; // the piece this log resolves to (from its normalized canonical URL)
   url: string | null; // null when the piece was entered by hand (e.g. a book)
   title: string;
   author: string | null;
@@ -44,6 +45,20 @@ export interface Log {
   take: string | null; // optional short note on why it mattered
   rating: number | null; // optional, 1-5
   createdAt: string; // ISO timestamp
+}
+
+// A work: one piece, with every log made against it pooled together. The
+// identity fields are drawn from the logs (canonical-URL clustering means
+// different people may have logged slightly different metadata).
+export interface Work {
+  id: string; // workId
+  title: string;
+  author: string | null;
+  source: string | null;
+  form: Form;
+  image: string | null;
+  url: string | null; // a representative original URL, for linking out
+  logs: Log[]; // newest first
 }
 
 // A feed entry: a shared log joined with the user who shared it, so the feed

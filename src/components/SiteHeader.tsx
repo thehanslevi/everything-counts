@@ -11,7 +11,7 @@ function tabClass(active: boolean): string {
     : `${base} bg-white text-black hover:bg-accent hover:text-white`;
 }
 
-export function SiteHeader({ active }: { active: "record" | "feed" }) {
+export function SiteHeader({ active }: { active?: "record" | "feed" }) {
   return (
     <header>
       <div className="border-b-[3px] border-black pb-4">

@@ -68,7 +68,8 @@ export const seedUsers: User[] = [
   },
 ];
 
-export const seedLogs: Log[] = [
+// workId is derived from each log's URL by the store, so it is omitted here.
+export const seedLogs: Omit<Log, "workId">[] = [
   // --- The current user's own record. All public; almost all takeless.
   {
     id: "seed-1",
@@ -398,5 +399,117 @@ export const seedLogs: Log[] = [
     take: null,
     rating: null,
     createdAt: "2026-05-26T08:10:00.000Z",
+  },
+
+  // --- Overlap: several people log the SAME pieces, via different URL variants
+  // --- (tracking params, trailing slash, uppercase host, fragment) that all
+  // --- normalize to one work. This is what the work pages pool. Mostly
+  // --- takeless, as is the norm.
+
+  // Piece A — "The Adaptation Trap" (also logged by Marcus as feed-3).
+  // Four loggers total once you count Marcus. A fully takeless pool.
+  {
+    id: "pool-a1",
+    userId: CURRENT_USER_ID,
+    shared: true,
+    url: "https://www.theatlantic.com/science/archive/2026/06/the-adaptation-trap/?utm_source=newsletter&utm_medium=email",
+    title: "The Adaptation Trap",
+    author: "Robinson Meyer",
+    source: "The Atlantic",
+    image: null,
+    form: "essay",
+    take: null,
+    rating: null,
+    createdAt: "2026-06-17T09:00:00.000Z",
+  },
+  {
+    id: "pool-a2",
+    userId: "user-priya",
+    shared: true,
+    url: "https://www.theatlantic.com/science/archive/2026/06/the-adaptation-trap?ref=twitter",
+    title: "The Adaptation Trap",
+    author: "Robinson Meyer",
+    source: "The Atlantic",
+    image: null,
+    form: "essay",
+    take: null,
+    rating: null,
+    createdAt: "2026-06-15T20:00:00.000Z",
+  },
+  {
+    id: "pool-a3",
+    userId: "user-daniel",
+    shared: true,
+    url: "HTTPS://WWW.theatlantic.com/science/archive/2026/06/the-adaptation-trap#section-2",
+    title: "The Adaptation Trap",
+    author: "Robinson Meyer",
+    source: "The Atlantic",
+    image: null,
+    form: "essay",
+    take: null,
+    rating: null,
+    createdAt: "2026-06-12T07:30:00.000Z",
+  },
+
+  // Piece B — "Frontier Model Evaluations" (also logged by Aisha as feed-4).
+  // Three loggers: one rating, one take, one bare.
+  {
+    id: "pool-b1",
+    userId: "user-daniel",
+    shared: true,
+    url: "https://arxiv.org/abs/2406.11234?utm_campaign=weekly",
+    title: "Frontier Model Evaluations: A Field Guide",
+    author: "S. Ramanathan et al.",
+    source: "arXiv",
+    image: null,
+    form: "report",
+    take: "saved the appendix for later.",
+    rating: null,
+    createdAt: "2026-06-14T12:00:00.000Z",
+  },
+  {
+    id: "pool-b2",
+    userId: CURRENT_USER_ID,
+    shared: true,
+    url: "https://arxiv.org/abs/2406.11234/",
+    title: "Frontier Model Evaluations: A Field Guide",
+    author: "S. Ramanathan et al.",
+    source: "arXiv",
+    image: null,
+    form: "report",
+    take: null,
+    rating: null,
+    createdAt: "2026-06-13T08:00:00.000Z",
+  },
+
+  // Piece C — "Why Catalytic Capital Keeps Underdelivering" (also logged by
+  // Priya as feed-2). Three loggers, none of them the current user.
+  {
+    id: "pool-c1",
+    userId: "user-lena",
+    shared: true,
+    url: "https://ssir.org/articles/entry/why_catalytic_capital_keeps_underdelivering?utm_source=linkedin",
+    title: "Why Catalytic Capital Keeps Underdelivering",
+    author: "Maria Castillo",
+    source: "Stanford Social Innovation Review",
+    image: null,
+    form: "article",
+    take: null,
+    rating: null,
+    createdAt: "2026-06-16T19:00:00.000Z",
+  },
+  {
+    id: "pool-c2",
+    userId: "user-grace",
+    shared: true,
+    url: "https://ssir.org/articles/entry/why_catalytic_capital_keeps_underdelivering#",
+    title: "Why Catalytic Capital Keeps Underdelivering",
+    author: "Maria Castillo",
+    source: "Stanford Social Innovation Review",
+    image: null,
+    form: "article",
+    take: null,
+    rating: null,
+    createdAt: "2026-06-14T10:00:00.000Z",
   },
 ];

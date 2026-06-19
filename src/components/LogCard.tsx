@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Log, User } from "@/lib/data/types";
 
 // The log card: the single repeating unit across the product. Swiss-brutalist
@@ -21,8 +22,9 @@ function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : dateFormatter.format(d).toUpperCase();
 }
 
-// Rating as a hard block: black field, accent-red filled marks.
-function Stars({ rating }: { rating: number }) {
+// Rating as a hard block: black field, accent-red filled marks. Exported so the
+// work page can reuse the exact same presentation in its pooled logs.
+export function Stars({ rating }: { rating: number }) {
   return (
     <span
       className="inline-flex bg-black px-2 py-1 font-structural text-sm leading-none tracking-[0.15em]"
@@ -38,8 +40,13 @@ export function LogCard({ log, logger }: { log: Log; logger?: User }) {
   const byline = [log.author, log.source].filter(Boolean).join(" · ");
 
   return (
-    <article className="border-[3px] border-black bg-white">
-      {logger && (
+    <Link
+      href={`/work/${log.workId}`}
+      className="block transition-colors"
+      aria-label={`Open the work page for ${log.title}`}
+    >
+      <article className="border-[3px] border-black bg-white transition-colors hover:border-accent">
+        {logger && (
         // Attribution banner: whose log this is. Feed only.
         <div className="flex items-baseline justify-between gap-3 border-b-[3px] border-black px-4 py-2.5">
           <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-black">
@@ -100,7 +107,8 @@ export function LogCard({ log, logger }: { log: Log; logger?: User }) {
             <Stars rating={log.rating} />
           </div>
         )}
-      </div>
-    </article>
+        </div>
+      </article>
+    </Link>
   );
 }
