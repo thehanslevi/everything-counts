@@ -4,6 +4,37 @@ A session-by-session record of decisions and state for the reading-log product (
 
 ---
 
+## Session 3 — Phase 2 profile shipped, then re-skinned to a design system
+
+### Build progress
+
+**Phase 2 complete and live.** The profile renders the current user's logged pieces as a chronological record of cards, newest first, all forms equal weight, no book option anywhere. The book form and the book-by-hand path were removed first (thesis cleanup from Session 2). A reusable LogCard component was built (it will be reused by the feed and work pages in later phases). Everything still routes through the data-access layer.
+
+**Design system established (Swiss-brutalist).** The original Phase 2 look was clean-but-generic ("beige," Goodreads-like). After looking at four restrained color directions (all too similar) and then three maximalist directions (Swiss-brutalist, pop-maximalist, retro-digital), the founder chose Swiss-brutalist. The principle that resolved the maximalism-vs-readability tension: loud in the frame, calm in the text. The structure shouts; the take and title stay readable.
+
+Design spec as built:
+- Palette: white base, near-black (#000) structure and type, one electric accent red #FF3B00. Accent used deliberately (form-tag banner, masthead "LOG" and "NEWEST FIRST", rating marks), not as a wash.
+- Borders: 3px hard black, square corners (0 radius), no shadows or gradients.
+- Structural font: Space Grotesk (bold 700, uppercase, tight tracking) for titles, masthead, form tags, bylines, dates. Loaded via next/font.
+- Calm zone: the take stays Newsreader serif, 15px, line-height 1.55, normal weight, near-black, not uppercase. Readability of the take is non-negotiable and was preserved.
+- Lead image full-bleeds to the card's black border.
+- Page reads as a composed magazine spread; the log form was reframed to match.
+- Iteration seam: the red lives in --accent and the type stacks in --stack-structural / --stack-serif in src/app/globals.css :root. Both are single-variable swaps.
+
+**Status: "good enough for now," not final.** The look is a clear improvement and the direction is right. The exact red and the font are explicitly still open to iteration; the variable setup makes both cheap to change later.
+
+**One real bug caught and fixed:** @theme inline does not emit runtime CSS variables, so the structural font initially fell back silently to the default (the exact failure mode that makes LLM-built apps look generic). Fixed by defining the type stacks as real :root variables. Verified Space Grotesk renders and the accent ships as rgb(255,59,0).
+
+**Not yet done by the founder:** a real long-scroll look on an actual device (especially phone). The preview screenshot tool only reliably captured the top of the page, so the thirty-card scroll experience — where a loud system most risks visual fatigue — has not been eyeballed yet. Worth doing.
+
+### Next actions
+
+1. Phase 3 in Claude Code: the populated feed (seeded fictional "people you follow," reverse chronological, reusing LogCard).
+2. Then Phase 4: work pages.
+3. Revisit the exact red and font once the founder has lived with the look.
+
+---
+
 ## Session 2 — Phase 0 and 1 shipped, category sharpened
 
 ### Build progress

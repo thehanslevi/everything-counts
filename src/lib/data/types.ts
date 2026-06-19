@@ -21,9 +21,20 @@ export const FORMS = [
 
 export type Form = (typeof FORMS)[number];
 
+// A person on the network. The current user plus the people they follow. Follow
+// relationships are implied by the seed for now: everyone here is followed.
+export interface User {
+  id: string;
+  name: string;
+  handle: string; // without the leading @
+  role: string; // one-line identity
+}
+
 // A log is one person recording one piece they have read.
 export interface Log {
   id: string;
+  userId: string; // who logged it
+  shared: boolean; // true once promoted to the feed (e.g. by adding a take)
   url: string | null; // null when the piece was entered by hand (e.g. a book)
   title: string;
   author: string | null;
@@ -33,6 +44,13 @@ export interface Log {
   take: string | null; // optional short note on why it mattered
   rating: number | null; // optional, 1-5
   createdAt: string; // ISO timestamp
+}
+
+// A feed entry: a shared log joined with the user who shared it, so the feed
+// can attribute each card without a second lookup.
+export interface FeedItem {
+  log: Log;
+  user: User;
 }
 
 // The shape a caller provides to create a log. The data layer fills in id and

@@ -1,28 +1,17 @@
 import { getLogs } from "@/lib/data/logs";
 import { LogForm } from "@/components/LogForm";
 import { LogCard } from "@/components/LogCard";
+import { SiteHeader } from "@/components/SiteHeader";
 
-// Home: log a piece, and below it the profile — a chronological record of
-// everything the current user has logged, newest first, as cards. Swiss-
-// brutalist skin: a composed magazine spread, loud structure, calm reading
-// zones. Data and structure are unchanged from Phase 2; this is visual only.
-// No counts or metrics; chronological texture only.
+// Home (Your record): log a piece, and below it the profile — a chronological
+// record of everything the current user has logged, newest first, as cards. No
+// counts or metrics; chronological texture only.
 export default async function Home() {
   const logs = await getLogs();
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
-      {/* Masthead */}
-      <header className="border-b-[3px] border-black pb-4">
-        <h1 className="font-structural text-5xl font-bold uppercase leading-[0.92] tracking-[-0.03em] text-black sm:text-6xl">
-          Reading
-          <br />
-          <span className="text-accent">Log</span>
-        </h1>
-      </header>
-      <p className="mt-4 font-structural text-sm font-bold uppercase tracking-[0.1em] text-black">
-        An honest record of the reading that counts nowhere else.
-      </p>
+      <SiteHeader active="record" />
 
       {/* Log a piece */}
       <section className="mt-12 border-[3px] border-black">

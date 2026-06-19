@@ -47,8 +47,9 @@ export async function createLog(
     rating,
   });
 
-  // Refresh the home page so the new log shows in the round-trip readback.
+  // Refresh the profile and the feed so a newly shared log shows on both.
   revalidatePath("/");
+  revalidatePath("/feed");
 
   return { ok: true, log };
 }

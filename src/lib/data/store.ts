@@ -1,5 +1,5 @@
-import type { Log } from "./types";
-import { seedLogs } from "./seed";
+import type { Log, User } from "./types";
+import { CURRENT_USER, seedLogs, seedUsers } from "./seed";
 
 // In-memory backing store for the data-access layer.
 //
@@ -16,6 +16,7 @@ import { seedLogs } from "./seed";
 
 interface ReadingLogStore {
   logs: Log[];
+  users: User[];
 }
 
 const globalForStore = globalThis as unknown as {
@@ -25,6 +26,7 @@ const globalForStore = globalThis as unknown as {
 export const store: ReadingLogStore =
   globalForStore.__readingLogStore ??
   (globalForStore.__readingLogStore = {
-    // Copy the seed so we never mutate the seed module's array.
+    // Copy the seeds so we never mutate the seed modules' arrays.
     logs: [...seedLogs],
+    users: [CURRENT_USER, ...seedUsers],
   });

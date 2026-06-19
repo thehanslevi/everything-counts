@@ -1,9 +1,11 @@
-import type { Log } from "@/lib/data/types";
+import type { Log, User } from "@/lib/data/types";
 
 // The log card: the single repeating unit across the product. Swiss-brutalist
 // skin — loud in the frame (thick black border, hard form-tag banner, big
-// grotesque title), calm in the take (readable serif). Data, fields, and
-// structure are unchanged from Phase 2; this is purely a visual treatment.
+// grotesque title), calm in the take (readable serif).
+//
+// On the solo profile it renders without attribution. In the social feed, pass
+// `logger` to show whose log it is as a hard banner above the card.
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -29,11 +31,26 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function LogCard({ log }: { log: Log }) {
+export function LogCard({ log, logger }: { log: Log; logger?: User }) {
   const byline = [log.author, log.source].filter(Boolean).join(" · ");
 
   return (
     <article className="border-[3px] border-black bg-white">
+      {logger && (
+        // Attribution banner: whose log this is. Feed only.
+        <div className="flex items-baseline justify-between gap-3 border-b-[3px] border-black px-4 py-2.5">
+          <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-black">
+            {logger.name}
+            <span className="ml-2 font-normal normal-case tracking-normal text-accent">
+              @{logger.handle}
+            </span>
+          </span>
+          <span className="shrink-0 text-right font-structural text-[0.65rem] font-bold uppercase tracking-[0.1em] text-neutral-500">
+            {logger.role}
+          </span>
+        </div>
+      )}
+
       {log.image && (
         // Lead image, full-bleed to the black border: no inset, no radius.
         // Plain img because the source host is arbitrary and not configured
