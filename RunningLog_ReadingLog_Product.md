@@ -4,6 +4,37 @@ A session-by-session record of decisions and state for the reading-log product (
 
 ---
 
+## Session 4 — Phase 3 shipped, then a thesis correction on the take
+
+### Build progress
+
+**Phase 3 complete and live.** The feed shipped: a /feed route with brutalist tab nav between "Your record" (/) and "Feed" (/feed), 22 cards from 8 users (7 followed + the current user mixed in), reverse chronological, reusing LogCard with an attribution banner. Data model gained a User type and userId + shared on Log; data layer gained getFeed() and getUser(). Verified live.
+
+### Thesis correction: the take is demoted
+
+**The problem.** The Phase 3 seed takes were obviously LLM-written — "quietly" overused, constructions like "the part worth stealing" and "why legibility destroys the thing it measures." LLM voice, not human voice.
+
+**The deeper realization.** The founder doesn't write reviews on Goodreads; she logs what she read and moves on. If the person the product is modeled on doesn't write takes, then "the take is the engine of the feed" was wrong. This overturns a load-bearing spec decision (the take had been the unit of currency, the visual hero of the card, the thing that promoted a log into the feed).
+
+**The correction (broad version, chosen deliberately):**
+- The take is demoted from engine to optional minor feature. Most logs have no take, and that is the norm. When present, the take is a small secondary element, not the card's center.
+- The unit of signal is who-read-what. "Four people you follow read this" is the discovery moment. The card is built around the piece and the person, not the take.
+- Logs are public by default (Letterboxd-diary model). Logging a piece is the act of sharing it; no separate share step, no take required. The record and the feed are the same set of logs. Rationale: any per-log share decision is friction, and friction kills the logging habit. Matches how people actually behave.
+- A private opt-out (mark a log private to keep it off the feed) is deferred but architected to be a small later change (a flag on the log, a filter in getFeed). Build auto-share now.
+
+**Cost acknowledged and recorded in the spec.** Demoting the take removes a hedge: when the take was the engine, commentary could make a thin feed interesting. Now the feed is only as good as the network in it, with no commentary layer on top. This concentrates the central risk onto seeding the right network. The network is now the whole game on the social side. The decision is still correct (it matches real logging behavior), but the stakes on the network went up.
+
+**Spec updated this session:** atomic-object section (take demoted, public-by-default added), job-reconciliation section, wedge consequence, card and feed surfaces, central-risk section.
+
+### Next actions
+
+1. Claude Code cleanup: strip the LLM-voice takes from the seed (most logs bare, at most one or two genuinely human-sounding takes or none), make logs public-by-default, rebuild the card around piece-and-person with the take as a small optional element.
+2. Then Phase 4: work pages (canonical-URL clustering, pooled logs per piece).
+3. Revisit exact red and font once lived-with.
+4. Hub-level, still open: master-map update and seven-test filter run — worth doing once the loop is complete.
+
+---
+
 ## Session 3 — Phase 2 profile shipped, then re-skinned to a design system
 
 ### Build progress

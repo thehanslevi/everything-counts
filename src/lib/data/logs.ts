@@ -46,22 +46,22 @@ export async function getFeed(): Promise<FeedItem[]> {
 }
 
 // Create and persist a new log for the current user, returning the stored
-// record. A log is shared to the feed when it carries a take (adding a take is
-// what promotes a log into the social feed).
+// record. Logs are public by default (the Letterboxd-diary model): logging a
+// piece is the act of sharing it, so it appears in the feed whether or not it
+// carries a take. The `shared` flag stays on the model so a private opt-out can
+// be added later as a filter in getFeed — that toggle is not built yet.
 export async function addLog(input: NewLog): Promise<Log> {
-  const take = input.take?.trim() ? input.take.trim() : null;
-
   const log: Log = {
     id: crypto.randomUUID(),
     userId: CURRENT_USER_ID,
-    shared: take !== null,
+    shared: true,
     url: input.url?.trim() ? input.url.trim() : null,
     title: input.title.trim(),
     author: input.author?.trim() ? input.author.trim() : null,
     source: input.source?.trim() ? input.source.trim() : null,
     image: input.image?.trim() ? input.image.trim() : null,
     form: input.form,
-    take,
+    take: input.take?.trim() ? input.take.trim() : null,
     rating: input.rating ?? null,
     createdAt: new Date().toISOString(),
   };

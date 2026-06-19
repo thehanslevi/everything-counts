@@ -2,7 +2,10 @@ import type { Log, User } from "@/lib/data/types";
 
 // The log card: the single repeating unit across the product. Swiss-brutalist
 // skin — loud in the frame (thick black border, hard form-tag banner, big
-// grotesque title), calm in the take (readable serif).
+// grotesque title). The card centers the piece and, in the feed, the person who
+// read it. Most logs have no take; the take, when present, is a small secondary
+// note, not the card's focus. A takeless card is the norm and is complete on its
+// own.
 //
 // On the solo profile it renders without attribution. In the social feed, pass
 // `logger` to show whose log it is as a hard banner above the card.
@@ -86,8 +89,8 @@ export function LogCard({ log, logger }: { log: Log; logger?: User }) {
         )}
 
         {log.take && (
-          // The one calm zone: readable serif, normal weight, near-black.
-          <p className="mt-4 font-serif text-[15px] font-normal leading-[1.55] text-neutral-900">
+          // A small secondary note when one exists. Minor by design.
+          <p className="mt-3 font-serif text-[13px] leading-[1.5] text-neutral-600">
             {log.take}
           </p>
         )}

@@ -4,9 +4,14 @@ import type { Log, User } from "./types";
 //
 // This stands in for rows that would live in a database: the current user, the
 // people they follow, and everyone's logs. Every entry is in-category (no books
-// as a completed unit) and URL-based. The follow graph is implied — everyone in
-// seedUsers is someone the current user follows — so the feed is simply all
-// shared logs across these people plus the current user's own shared logs.
+// as a completed unit) and URL-based.
+//
+// Logs are public by default (the Letterboxd-diary model): logging a piece is
+// the act of sharing it, so every log here is shared, and the feed is simply
+// the logging activity of the people you follow. Most logs have NO take — a
+// person logs a piece because they read it, not because they have a comment.
+// Only a couple of logs carry a take, and those read like someone typing fast,
+// not an essay. A mostly-takeless record is the intended look.
 
 export const CURRENT_USER_ID = "user-me";
 
@@ -64,8 +69,7 @@ export const seedUsers: User[] = [
 ];
 
 export const seedLogs: Log[] = [
-  // --- The current user's own record. Logs with a take are shared to the feed;
-  // --- the one without a take stays on the personal record only.
+  // --- The current user's own record. All public; almost all takeless.
   {
     id: "seed-1",
     userId: CURRENT_USER_ID,
@@ -77,7 +81,7 @@ export const seedLogs: Log[] = [
     image:
       "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=900&q=80",
     form: "essay",
-    take: "The point about attention as a finite, spendable resource reframed how I think about my reading habits.",
+    take: null,
     rating: 4,
     createdAt: "2026-06-16T09:20:00.000Z",
   },
@@ -91,7 +95,7 @@ export const seedLogs: Log[] = [
     source: "Brookings",
     image: null,
     form: "report",
-    take: "Made me rethink which institutions actually carry civic trust, versus which ones just claim to.",
+    take: null,
     rating: null,
     createdAt: "2026-06-14T15:05:00.000Z",
   },
@@ -105,14 +109,14 @@ export const seedLogs: Log[] = [
     source: "Poetry Foundation",
     image: null,
     form: "poem",
-    take: "I keep returning to the line about resting in the grace of the world. Read it twice in one sitting.",
+    take: "read it twice.",
     rating: 5,
     createdAt: "2026-06-13T21:40:00.000Z",
   },
   {
     id: "seed-4",
     userId: CURRENT_USER_ID,
-    shared: false,
+    shared: true,
     url: "https://www.theatlantic.com/technology/archive/2024/03/the-end-of-the-open-web",
     title: "The Slow Erosion of the Open Web",
     author: "Charlie Warzel",
@@ -134,7 +138,7 @@ export const seedLogs: Log[] = [
     source: "arXiv",
     image: null,
     form: "report",
-    take: "The section on diminishing returns is the clearest articulation I've found of where the field actually is.",
+    take: null,
     rating: 4,
     createdAt: "2026-06-09T19:00:00.000Z",
   },
@@ -148,7 +152,7 @@ export const seedLogs: Log[] = [
     source: "The New Yorker",
     image: null,
     form: "short story",
-    take: "A whole life compressed into the geometry of a lap pool. Devastating in the last page.",
+    take: null,
     rating: 5,
     createdAt: "2026-06-07T22:30:00.000Z",
   },
@@ -162,12 +166,13 @@ export const seedLogs: Log[] = [
     source: "Princeton University Press",
     image: null,
     form: "chapter",
-    take: "Just this chapter, not the whole book. The critique of legibility is doing a lot of work in my thinking lately.",
+    take: null,
     rating: null,
     createdAt: "2026-06-04T11:10:00.000Z",
   },
 
-  // --- The feed: shared logs from the people the current user follows.
+  // --- The feed: logs from the people the current user follows. All public,
+  // --- almost all takeless.
   {
     id: "feed-1",
     userId: "user-daniel",
@@ -178,7 +183,7 @@ export const seedLogs: Log[] = [
     source: "Carnegie Endowment",
     image: null,
     form: "report",
-    take: "The claim that regulatory gravity is weakening is overstated, but the section on enforcement asymmetry between Brussels and member states is the part worth stealing.",
+    take: null,
     rating: null,
     createdAt: "2026-06-18T07:45:00.000Z",
   },
@@ -192,7 +197,7 @@ export const seedLogs: Log[] = [
     source: "Stanford Social Innovation Review",
     image: null,
     form: "article",
-    take: "Finally someone says it: most 'catalytic' capital is concessional capital with better marketing. The taxonomy in the middle is genuinely useful for screening deals.",
+    take: null,
     rating: 4,
     createdAt: "2026-06-17T16:30:00.000Z",
   },
@@ -207,7 +212,7 @@ export const seedLogs: Log[] = [
     image:
       "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&q=80",
     form: "essay",
-    take: "Came in skeptical of the framing and left convinced. Treating adaptation and mitigation as a budget tradeoff is exactly the mistake my portfolio keeps making.",
+    take: null,
     rating: null,
     createdAt: "2026-06-16T13:10:00.000Z",
   },
@@ -222,7 +227,7 @@ export const seedLogs: Log[] = [
     image:
       "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=900&q=80",
     form: "report",
-    take: "Skip the intro; the value is the appendix taxonomy of eval failure modes. I've already sent it to two grantees building red-teaming tools.",
+    take: null,
     rating: 5,
     createdAt: "2026-06-15T10:05:00.000Z",
   },
@@ -236,7 +241,7 @@ export const seedLogs: Log[] = [
     source: "The Slow Build",
     image: null,
     form: "essay",
-    take: "Every funder should read this before asking for another pilot. The point that pilots are a way to avoid committing is uncomfortable and correct.",
+    take: null,
     rating: null,
     createdAt: "2026-06-14T18:50:00.000Z",
   },
@@ -250,7 +255,7 @@ export const seedLogs: Log[] = [
     source: "Poetry Foundation",
     image: null,
     form: "poem",
-    take: "Read between two grant reviews and it reset my whole afternoon. The turn in the final stanza does more than most of the reports I read all week.",
+    take: null,
     rating: 5,
     createdAt: "2026-06-13T09:25:00.000Z",
   },
@@ -264,7 +269,7 @@ export const seedLogs: Log[] = [
     source: "The Hechinger Report",
     image: null,
     form: "article",
-    take: "The effect sizes everyone cites come from conditions no real district can reproduce. The most honest piece on high-dosage tutoring I've found.",
+    take: null,
     rating: null,
     createdAt: "2026-06-12T14:40:00.000Z",
   },
@@ -278,7 +283,7 @@ export const seedLogs: Log[] = [
     source: "Crown",
     image: null,
     form: "chapter",
-    take: "Just the chapter on upside-down subsidies. The framing that we already have a welfare state, it's just pointed at the wrong people, is going in my next board memo.",
+    take: null,
     rating: null,
     createdAt: "2026-06-11T20:15:00.000Z",
   },
@@ -292,7 +297,7 @@ export const seedLogs: Log[] = [
     source: "RAND",
     image: null,
     form: "report",
-    take: "The threat model is more careful than most. Their point that export controls buy time but not safety is the framing I'll borrow for the next briefing.",
+    take: "solid on export controls, thin on enforcement.",
     rating: 4,
     createdAt: "2026-06-10T11:30:00.000Z",
   },
@@ -306,7 +311,7 @@ export const seedLogs: Log[] = [
     source: "The Paris Review",
     image: null,
     form: "short story",
-    take: "Not what I usually log, but the way it sits with uncertainty and forecasting hit close to the climate work. Worth the twenty minutes.",
+    take: null,
     rating: null,
     createdAt: "2026-06-08T21:05:00.000Z",
   },
@@ -320,7 +325,7 @@ export const seedLogs: Log[] = [
     source: "Noema",
     image: null,
     form: "essay",
-    take: "A needed corrective to the 'just align the incentives' crowd. Section 3, on why legibility destroys the thing it measures, is the actual contribution.",
+    take: null,
     rating: 4,
     createdAt: "2026-06-07T08:40:00.000Z",
   },
@@ -334,7 +339,7 @@ export const seedLogs: Log[] = [
     source: "Stanford Social Innovation Review",
     image: null,
     form: "article",
-    take: "Depressing that this is still the defining read. The new data on indirect cost rates makes the original argument worse, not better.",
+    take: null,
     rating: null,
     createdAt: "2026-06-05T17:20:00.000Z",
   },
@@ -348,7 +353,7 @@ export const seedLogs: Log[] = [
     source: "MDRC",
     image: null,
     form: "report",
-    take: "Mostly confirms priors, but the cost-per-outcome tables are the cleanest I've seen and worth bookmarking for any RFP.",
+    take: null,
     rating: null,
     createdAt: "2026-06-03T12:00:00.000Z",
   },
@@ -362,7 +367,7 @@ export const seedLogs: Log[] = [
     source: "The Point",
     image: null,
     form: "essay",
-    take: "An honest reckoning with the moral weirdness of advising the very rich on generosity. I underlined half of it.",
+    take: null,
     rating: 4,
     createdAt: "2026-05-31T10:45:00.000Z",
   },
@@ -376,7 +381,7 @@ export const seedLogs: Log[] = [
     source: "Tech Policy Press",
     image: null,
     form: "article",
-    take: "Names a dynamic I've watched for years. The case study on one working group is worth the price of the whole piece.",
+    take: null,
     rating: null,
     createdAt: "2026-05-28T15:35:00.000Z",
   },
@@ -390,7 +395,7 @@ export const seedLogs: Log[] = [
     source: "Poetry Foundation",
     image: null,
     form: "poem",
-    take: "Short enough to read at a standup, dense enough to think about all day. The image of the tree turning toward light is staying with me.",
+    take: null,
     rating: null,
     createdAt: "2026-05-26T08:10:00.000Z",
   },

@@ -26,7 +26,7 @@ First, the personal-record job. A person reads a lot, but often not books, and t
 
 Second, the signaling-and-discovery job. People curate and share what they read to express how they think, and they follow people whose attention they trust to find what to read next. This is the social engine.
 
-These jobs are in tension. A comprehensive record pulls toward capturing everything. A social feed pulls toward curation, because an unfiltered firehose of everything a person reads is noise to followers. The product resolves the tension by separating what you log from what you broadcast: capture can be comprehensive, the feed stays curated, and the same log action feeds both. A log lives on your personal record by default; adding a take, or explicitly sharing, promotes it into the social feed.
+These jobs are in tension. A comprehensive record pulls toward capturing everything. A social feed pulls toward curation, because an unfiltered firehose of everything a person reads is noise to followers. The product resolves the tension by leaning on a tight network rather than on a curation step: logs are public by default (the Letterboxd-diary model), so the record and the feed are the same set, and the feed stays signal because the people in it are few and trusted, not because each log was individually chosen for broadcast. The signal is who-read-what among people whose attention you trust. A private opt-out is a planned later release valve, not a launch-time curation mechanic.
 
 ## What counts, and what equal footing means
 
@@ -44,7 +44,7 @@ This wedge has two consequences that shape the product.
 
 The corpus is identifier-friendly. This audience reads reports, working papers, preprints, policy pieces, and academic-adjacent longreads. Much of this content carries DOIs or lives in open-access repositories, which makes both the canonical-work model and the free-version feature stronger and easier than they would be for a general or literary audience.
 
-The reading is instrumental, not performative. This audience shares a piece to make a point, not to perform taste. So the take matters more than the rating. "I read this" carries little signal in this crowd. "I read this and here is the one thing it changed" is the unit of currency. The social card is built around the take, not the star.
+The reading is instrumental, not performative. This audience reads to make decisions and arguments, and the fact that a trusted peer read a given report or essay is itself the signal, regardless of whether they comment. So the unit of currency is the log, not the take. "Four people you follow read this" is the discovery moment. A take, when someone bothers to write one, is a welcome bonus, not the point. The card is built around the piece and the person who read it, with the take as a small optional addition.
 
 The wedge is a starting point, not a ceiling. Adjacent rings (literary and arts, broader thoughtful readers) can recognize themselves in the product later. They are not the launch audience, because seeding is hand to hand and density matters more than breadth at the start.
 
@@ -56,7 +56,7 @@ A piece reference. The user pastes a URL or identifies a book. The system fetche
 
 A form. Whether the piece is an essay, article, chapter, poem, report, short story, or other. Books as a completed unit are not a form (see the category section); a chapter is. The form is honored equally across the product. It also drives display texture (see profile) and informs the reading metric (see open question). The form field is built to accept later values (video essay, podcast episode) without a data-model change.
 
-A take. A short free-form note answering, in effect, why this mattered or what it changed. On the social card the take is the visual hero. It is not required to log, but adding a take is what promotes a log into the social feed, and the launch community norm rewards it. This is the divergence from the Letterboxd template, which leads with a star rating.
+A take. An optional short note. Most logs do not have one, and that is the norm: a person logs a piece because they read it, not because they have a comment. When present, the take is a small secondary element on the card, not its center. The take does not gate sharing (see below) and is not the unit of signal. This is a correction from an earlier draft that treated the take as the engine of the feed; in practice the founder, like most people, logs what they read without reviewing it, so the signal is the log itself, not the commentary.
 
 A rating. Optional and visually minor. Present for people who want it, never the center of the card.
 
@@ -64,13 +64,13 @@ A free-version link, when available. Where a legitimate open-access copy exists,
 
 A timestamp. Logs are ordered chronologically on the personal record.
 
-Logging is possible with just the piece reference and form. The take and the act of sharing are what move a log from private record into the public feed.
+A log is public by default. Logging a piece is the act of sharing it. The record and the feed draw from the same set of logs, with no separate share step and no take required. This is the Letterboxd-diary model: you log a piece because you read it, and the people who follow you see it. A private opt-out (mark a log private so it stays off the feed) is a planned later addition, deferred for now, architected to be a small change (a flag on the log, a filter in the feed query). The reason to keep public-by-default at the core is friction: any per-log share decision is friction, and friction is what kills a logging habit. The product matches how people actually behave, which is log and move on.
 
 ## Core surfaces
 
 ### The log card
 
-The single repeating unit across the product. Shows source image, title, author, source, form, the take as the dominant text when present, an optional small rating, and the free-version link when present. Tapping the card opens the work page. The card must look finished and beautiful the instant it lands, because the aesthetic payoff is part of why deliberate logging feels good.
+The single repeating unit across the product. Shows source image, title, author, source, form, and (in the feed) who read it, with the take as a small optional element when present and an optional small rating. Most cards have no take, and that is normal. Tapping the card opens the work page. The card must look finished and beautiful the instant it lands, because the aesthetic payoff is part of why deliberate logging feels good.
 
 ### The profile (a person's reading record)
 
@@ -86,7 +86,7 @@ Comparison is allowed and treated as motivating, not corrosive. Seeing your read
 
 ### The feed
 
-What the people you follow have chosen to share, in reverse chronological order. Not algorithmic. The feed is the discovery engine, and it is curated by what people promote into it (via a take or an explicit share), which is what keeps it signal rather than a firehose of every logged item. The feed's quality is a function of who is in the network, which is why seeding the right people is the product, not a launch tactic.
+What the people you follow have logged, in reverse chronological order. Not algorithmic. The feed is the discovery engine. Because logs are public by default, the feed is simply the logging activity of the people you follow, and its signal comes from who is in the network rather than from a per-log curation step. The feed's quality is therefore almost entirely a function of who is in the network, which is why seeding the right people is the product, not a launch tactic.
 
 ### The work page
 
@@ -153,6 +153,8 @@ This is a cold-start, taste-graph social product, the single hardest consumer ca
 The comprehensive personal-record half is less network-dependent and is a hedge: a person can get real value from their own honest reading record before any social graph exists, which gives the product a reason to exist for a single user on day one and a gentler cold-start than a pure social product. That is a meaningful argument for leading new users into the personal-record experience first and letting the social layer accrue.
 
 What de-risks the social half: a founder with a real, dense, warm network in the launch wedge and a genuine reason to convene it. Seeding is hand to hand, sixty to one hundred fifty specific people contacted directly, not a launch post. Whether that convening happens is the live question for the social engine, though the personal-record value reduces the stakes of getting it perfect at launch.
+
+This risk is now more concentrated than in an earlier draft. The take, when it was the engine of the feed, was also a hedge: commentary could make a feed interesting even if the network was thin. Demoting the take to an optional minor feature removes that hedge. With logs public by default and bare, the feed is only as interesting as the people in it, with no commentary layer to add value on top. A bare-log feed from a thin or uninteresting network is dead air; a bare-log feed from people whose attention you trust is exactly the product. So the decision to demote the take, which is correct because it matches how people actually log, raises the stakes on seeding the right network. The network is now the whole game on the social side.
 
 ## Open questions for the next pass
 
