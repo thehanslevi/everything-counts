@@ -4,6 +4,11 @@
 // them from here, never from a storage implementation, so the backing store can
 // change (in-memory today, a real database later) without touching callers.
 
+// In-category reading forms. Books as a completed unit are deliberately
+// excluded (that is Goodreads' territory); a chapter stays, because reading one
+// chapter is exactly the discrete, non-completion reading this product is for.
+// This list is intentionally open-ended: later forms (e.g. "video essay",
+// "podcast episode") drop in here with no data-model change.
 export const FORMS = [
   "essay",
   "article",
@@ -11,7 +16,6 @@ export const FORMS = [
   "poem",
   "report",
   "short story",
-  "book",
   "other",
 ] as const;
 

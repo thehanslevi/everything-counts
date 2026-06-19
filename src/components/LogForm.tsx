@@ -4,8 +4,6 @@ import { useState, useTransition } from "react";
 import { createLog } from "@/app/actions";
 import { FORMS, type Form } from "@/lib/data/types";
 
-type Mode = "link" | "book";
-
 const initialFields = {
   url: "",
   title: "",
@@ -18,7 +16,6 @@ const initialFields = {
 };
 
 export function LogForm() {
-  const [mode, setMode] = useState<Mode>("link");
   const [fields, setFields] = useState(initialFields);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -32,18 +29,6 @@ export function LogForm() {
     value: (typeof fields)[K],
   ) {
     setFields((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function switchMode(next: Mode) {
-    setMode(next);
-    setFields({
-      ...initialFields,
-      form: next === "book" ? "book" : "article",
-    });
-    setFetched(false);
-    setFetchError(null);
-    setFormError(null);
-    setSaved(null);
   }
 
   async function handleFetch() {
@@ -84,7 +69,7 @@ export function LogForm() {
     setSaved(null);
 
     const data = new FormData();
-    data.set("url", mode === "link" ? fields.url.trim() : "");
+    data.set("url", fields.url.trim());
     data.set("title", fields.title);
     data.set("author", fields.author);
     data.set("source", fields.source);
@@ -100,75 +85,46 @@ export function LogForm() {
         return;
       }
       setSaved(result.log?.title ?? fields.title);
-      setFields({ ...initialFields, form: mode === "book" ? "book" : "article" });
+      setFields(initialFields);
       setFetched(false);
     });
   }
 
-  const showDetails = mode === "book" || fetched || fields.title.length > 0;
+  const showDetails = fetched || fields.title.length > 0;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {/* Mode toggle */}
-      <div className="flex gap-1 rounded-full border border-stone-200 bg-stone-50 p-1 text-sm">
-        <button
-          type="button"
-          onClick={() => switchMode("link")}
-          className={`flex-1 rounded-full px-4 py-1.5 transition-colors ${
-            mode === "link"
-              ? "bg-white text-stone-900 shadow-sm"
-              : "text-stone-500 hover:text-stone-800"
-          }`}
-        >
-          Paste a link
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode("book")}
-          className={`flex-1 rounded-full px-4 py-1.5 transition-colors ${
-            mode === "book"
-              ? "bg-white text-stone-900 shadow-sm"
-              : "text-stone-500 hover:text-stone-800"
-          }`}
-        >
-          Add a book by hand
-        </button>
-      </div>
-
-      {mode === "link" && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="url" className="text-sm font-medium text-stone-700">
-            Link
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="url"
-              type="url"
-              inputMode="url"
-              placeholder="https://..."
-              value={fields.url}
-              onChange={(e) => update("url", e.target.value)}
-              className="flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-500"
-            />
-            <button
-              type="button"
-              onClick={handleFetch}
-              disabled={fetching}
-              className="whitespace-nowrap rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-stone-50 transition-colors hover:bg-stone-700 disabled:opacity-50"
-            >
-              {fetching ? "Fetching..." : "Fetch details"}
-            </button>
-          </div>
-          {fetchError && (
-            <p className="text-sm text-red-600">{fetchError}</p>
-          )}
-          {fetched && !fetchError && (
-            <p className="text-sm text-stone-500">
-              Pulled what we could. Edit anything below before saving.
-            </p>
-          )}
+      <div className="flex flex-col gap-2">
+        <label htmlFor="url" className="text-sm font-medium text-stone-700">
+          Link
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="url"
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            placeholder="https://..."
+            value={fields.url}
+            onChange={(e) => update("url", e.target.value)}
+            className="flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-500"
+          />
+          <button
+            type="button"
+            onClick={handleFetch}
+            disabled={fetching}
+            className="whitespace-nowrap rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-stone-50 transition-colors hover:bg-stone-700 disabled:opacity-50"
+          >
+            {fetching ? "Fetching..." : "Fetch details"}
+          </button>
         </div>
-      )}
+        {fetchError && <p className="text-sm text-red-600">{fetchError}</p>}
+        {fetched && !fetchError && (
+          <p className="text-sm text-stone-500">
+            Pulled what we could. Edit anything below before saving.
+          </p>
+        )}
+      </div>
 
       {showDetails && (
         <div className="flex flex-col gap-5 border-t border-stone-200 pt-5">
@@ -189,7 +145,7 @@ export function LogForm() {
               type="text"
               value={fields.title}
               onChange={(e) => update("title", e.target.value)}
-              placeholder={mode === "book" ? "Book title" : "Piece title"}
+              placeholder="Piece title"
               className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-500"
             />
           </Field>
@@ -205,18 +161,16 @@ export function LogForm() {
             />
           </Field>
 
-          {mode === "link" && (
-            <Field label="Source" htmlFor="source">
-              <input
-                id="source"
-                type="text"
-                value={fields.source}
-                onChange={(e) => update("source", e.target.value)}
-                placeholder="Publication or site"
-                className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-500"
-              />
-            </Field>
-          )}
+          <Field label="Source" htmlFor="source">
+            <input
+              id="source"
+              type="text"
+              value={fields.source}
+              onChange={(e) => update("source", e.target.value)}
+              placeholder="Publication or site"
+              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-500"
+            />
+          </Field>
 
           <Field label="Form" htmlFor="form">
             <select
@@ -299,9 +253,7 @@ function Field({
         className="flex items-center gap-2 text-sm font-medium text-stone-700"
       >
         {label}
-        {hint && (
-          <span className="font-normal text-stone-400">{hint}</span>
-        )}
+        {hint && <span className="font-normal text-stone-400">{hint}</span>}
       </label>
       {children}
     </div>

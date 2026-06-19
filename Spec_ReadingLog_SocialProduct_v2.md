@@ -1,12 +1,22 @@
 # Reading Log Social Product — Spec v2
 
-A followable, honest record of everything a person reads, and why. Working name TBD. This is a product spec, not a build plan. It captures the thesis, the audience, the core object, the feature set, the data model, and the deliberate non-features. It carries the decisions made across the builds-hub sessions that produced it.
+A followable, honest record of the reading and consuming that counts nowhere else, and why. Working name TBD. This is a product spec, not a build plan. It captures the thesis, the audience, the core object, the feature set, the data model, and the deliberate non-features. It carries the decisions made across the builds-hub sessions that produced it.
 
-Changes from v1: the product's job widened from selective signaling to a comprehensive reading record that also signals. "Comprehensive" was redefined. The profile gained a metric and a texture view. Social comparison was reinstated as a deliberate, motivating feature rather than a risk to suppress. The anchor metric is left as a named open question with the reasoning attached.
+Changes from v1: the product's job widened from selective signaling to an honest record that also signals. The category was sharpened. Books are excluded on purpose. Multimedia is in the thesis but sequenced after text. The profile gained a metric and a texture view. Social comparison was reinstated as a deliberate, motivating feature rather than a risk to suppress. The anchor metric is left as a named open question with the reasoning attached.
+
+## The category: content that counts nowhere else
+
+The product is for the reading and consuming that has no home and registers nowhere as something a person did and thought about. The essay, the longform article, the policy report, the preprint, the poem, the chapter, and later the video essay and the podcast episode. The defining trait is homelessness, not format: this is the content that existing tools do not let a person record and be seen recording.
+
+Books are excluded on purpose. Goodreads already owns the book. Including books would blur what the product is for and make it read as a Goodreads competitor, which it is not. The exclusion is a positioning and culture decision, chosen for clarity, accepted as a deliberate trade against completeness. A person who reads books and essays will have their book reading live elsewhere, the way a Letterboxd user's television viewing lives elsewhere, and the clarity is worth the partial picture.
+
+The boundary rule that follows: the unit is the discrete piece, not the completed work. A chapter counts, because reading one chapter is exactly the discrete, non-completion reading the product exists for, whether or not the book is finished. The completed book as a unit is out, because that is the Goodreads behavior. The test for any form is whether it has a home already, not whether it is text.
+
+Multimedia (video essays, podcast episodes) is part of the thesis but sequenced after text. The logging mechanic is identical across forms (paste a URL, fetch metadata, add a take), so multimedia is cheap to add later and adds mostly noise if rushed in at launch. Text-first launch lets the seed community form a legible culture before the feed becomes heterogeneous. Multimedia is the proven second expansion, not a launch form.
 
 ## One-sentence pitch
 
-The place where everything you read counts, where your reading life is reflected back to you honestly and beautifully, and where what the people you trust are reading, and why, becomes a followable record instead of disappearing into a feed.
+The place where the reading and watching and listening that counts nowhere else finally counts, where it is reflected back to you honestly and beautifully, and where what the people you trust are paying attention to, and why, becomes a followable record instead of disappearing into a feed.
 
 ## The job the product does
 
@@ -18,11 +28,11 @@ Second, the signaling-and-discovery job. People curate and share what they read 
 
 These jobs are in tension. A comprehensive record pulls toward capturing everything. A social feed pulls toward curation, because an unfiltered firehose of everything a person reads is noise to followers. The product resolves the tension by separating what you log from what you broadcast: capture can be comprehensive, the feed stays curated, and the same log action feeds both. A log lives on your personal record by default; adding a take, or explicitly sharing, promotes it into the social feed.
 
-## What "comprehensive" means
+## What counts, and what equal footing means
 
-Comprehensive does not mean capture everything automatically. It means no reading is second-class.
+Within the category, no form is second-class. This is the anti-Goodreads thesis, narrowed. Goodreads makes the book the only unit that counts, so a month of heavy essay, article, and poetry reading registers as zero, and the reader is told they did not read. The shame is not "I read a small amount," it is "the thing I did does not count at all." The fix is to make every in-category form count the same way and display with the same dignity: an essay, a poem, a chapter, a longread, a report, a short story, and later a video essay or a podcast episode, all logged the same way and shown with equal weight.
 
-This is the anti-Goodreads thesis. Goodreads makes the book the only unit that counts, so a month of heavy essay, article, and poetry reading registers as zero, and the reader is told they did not read. The shame is not "I read a small amount," it is "the thing I did does not count at all." The fix is not to hide volume. The fix is to make volume honest about what reading actually is. An essay counts. A poem counts. A chapter counts. A longread, a report, a short story all count, logged the same way and displayed with the same dignity as a book.
+The product is not comprehensive in the sense of recording everything a person reads, because books are deliberately out (see the category section). It is honest within its category: of the reading that counts nowhere else, none is privileged over any other.
 
 Capture stays deliberate. A person logs the things they actually read, on the order of five to fifteen discrete pieces a week, by hand. The deliberate act of logging is what encodes "I read this, and it counted," and that encoding is the emotional payload. The product does not run passive or automatic capture at launch. Deliberate logging is a feature, not a limitation, and holding that line is what keeps the product from sliding into the read-later category and becoming a guilt repository of things opened and abandoned.
 
@@ -44,7 +54,7 @@ A log is one person recording one piece they have read. It has these parts.
 
 A piece reference. The user pastes a URL or identifies a book. The system fetches title, author, source, and image from OpenGraph metadata, or from a book metadata source, and resolves the canonical work (see data model). The user can log any form of reading.
 
-A form. Whether the piece is an essay, article, chapter, poem, report, short story, book, or other. The form is honored equally across the product. It also drives display texture (see profile) and informs the reading metric (see open question).
+A form. Whether the piece is an essay, article, chapter, poem, report, short story, or other. Books as a completed unit are not a form (see the category section); a chapter is. The form is honored equally across the product. It also drives display texture (see profile) and informs the reading metric (see open question). The form field is built to accept later values (video essay, podcast episode) without a data-model change.
 
 A take. A short free-form note answering, in effect, why this mattered or what it changed. On the social card the take is the visual hero. It is not required to log, but adding a take is what promotes a log into the social feed, and the launch community norm rewards it. This is the divergence from the Letterboxd template, which leads with a star rating.
 
@@ -122,9 +132,9 @@ No read-later queue. The product logs what you have already read. It does not st
 
 No highlight vault or spaced-repetition review. Those are the Readwise and Matter jobs, private-knowledge-system features rather than record-and-signal features.
 
-No multimedia at launch. Podcasts and YouTube can carry signal and can reuse the logging mechanic, but adding them at launch dilutes the legibility the early community needs to know what the product is for. Defer; expand once the loop is proven.
+Multimedia is sequenced, not excluded. Video essays and podcast episodes are part of the category and the thesis, but they are not a launch form. They reuse the identical logging mechanic (paste a URL, fetch metadata, add a take), so they are cheap to add later and add mostly noise if rushed in at launch, where a heterogeneous feed would blur what the product is for before its culture has formed. Text-first launch, multimedia as the proven second expansion. The build stays form-agnostic so the expansion needs no rewrite.
 
-No book-count challenge grid. The Goodreads annual-book-count grid privileges the book and rewards a single narrow form, which is the exact dynamic the product rejects. Any quantity celebration must be form-neutral.
+No completed-book logging and no book-count grid. Books as a unit are out of the category on purpose (see the category section). There is therefore no annual-book-count grid, which privileged the book and rewarded a single narrow form anyway. Any quantity celebration is form-neutral across the in-category forms.
 
 No algorithmic feed. The feed is reverse-chronological from who you follow and what they share. Algorithmic ranking is a later, optional consideration and a values question, not a launch feature.
 
@@ -132,9 +142,9 @@ No algorithmic feed. The feed is reverse-chronological from who you follow and w
 
 The read-later category is crowded and consolidating, but every survivor is built for a different job. Readwise Reader, Instapaper, Raindrop, and Matter are capture-and-consume tools built around save-for-later queues, highlight engines, and private archives. Pocket shut down in 2025 and Omnivore in 2024. None of these is a comprehensive social reading record; sharing is a bolt-on where it exists at all.
 
-Goodreads owns the reading record but only for books, which is precisely the gap this product fills. StoryGraph and Oku improve on Goodreads but remain book-centric. The broadcast-with-a-take behavior this audience already has lives on LinkedIn and Substack Notes, which offer no permanence, no work pages, no followable reading identity, and an algorithmic feed that buries everything within a day.
+Goodreads owns the book and is welcome to it. This product does not compete for the book; it deliberately cedes that ground and takes everything else. StoryGraph and Oku improve on Goodreads but remain book-centric, so they do not touch the category either. The broadcast-with-a-take behavior this audience already has lives on LinkedIn and Substack Notes, which offer no permanence, no work pages, no followable reading identity, and an algorithmic feed that buries everything within a day.
 
-The white space is specific and open: nobody owns the honest, form-neutral reading record that also functions as a followable social graph of what thoughtful people read and why. The product takes the part of Goodreads and Letterboxd that works (a followable record of taste) and removes the constraint that books are the only thing that counts.
+The white space is specific and open: nobody owns the honest, form-neutral record of the non-book reading (and later watching and listening) that counts nowhere else, functioning as a followable social graph of what thoughtful people pay attention to and why. The product takes the part of Goodreads and Letterboxd that works, a followable record of taste, and points it at the content that has no home.
 
 ## The central risk
 
