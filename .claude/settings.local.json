@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(vercel --version)",
+      "Bash(git --version)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --eslint --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --yes)",
+      "Read(//private/tmp/**)",
+      "Bash(rm -rf reading-log-scaffold)",
+      "Bash(npx --yes create-next-app@latest reading-log-scaffold --typescript --tailwind --app --eslint --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --yes)",
+      "Bash(rsync -a /tmp/reading-log-scaffold/ /Users/hrlevinson/Projects/reading-log/)",
+      "Bash(npm run *)",
+      "Bash(git init *)",
+      "Bash(git branch *)",
+      "Bash(git add *)",
+      "Bash(git -c user.name=thehanslevi -c user.email=thehanslevi@proton.me commit -q -m 'Phase 0: scaffold Next.js + TypeScript + Tailwind, empty placeholder *)"
+    ]
+  }
+}
