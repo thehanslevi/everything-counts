@@ -1,6 +1,6 @@
 import type { Log, User } from "./types";
 import { CURRENT_USER, seedLogs, seedUsers } from "./seed";
-import { workIdFromUrl } from "./canonical";
+import { workIdFor } from "./url";
 
 // In-memory backing store for the data-access layer.
 //
@@ -28,10 +28,10 @@ export const store: ReadingLogStore =
   globalForStore.__readingLogStore ??
   (globalForStore.__readingLogStore = {
     // Derive each seed log's workId from its normalized URL so logs of the same
-    // piece cluster. Logs without a URL get a unique, non-clustering id.
+    // piece cluster (workIdFor falls back to the title when there is no URL).
     logs: seedLogs.map((log) => ({
       ...log,
-      workId: workIdFromUrl(log.url) ?? `solo-${log.id}`,
+      workId: workIdFor(log.url, log.title),
     })),
     users: [CURRENT_USER, ...seedUsers],
   });

@@ -1,6 +1,6 @@
 import { store } from "./store";
 import { CURRENT_USER_ID } from "./seed";
-import { workIdFromUrl } from "./canonical";
+import { workIdFor } from "./url";
 import type { FeedItem, Log, NewLog, User, Work } from "./types";
 
 // Data-access layer for logs and users.
@@ -89,7 +89,7 @@ export async function addLog(input: NewLog): Promise<Log> {
     id,
     userId: CURRENT_USER_ID,
     shared: true,
-    workId: workIdFromUrl(url) ?? `solo-${id}`,
+    workId: workIdFor(url, input.title),
     url,
     title: input.title.trim(),
     author: input.author?.trim() ? input.author.trim() : null,
