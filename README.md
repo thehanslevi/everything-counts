@@ -2,7 +2,7 @@
 
 A reading log for everything that isn't a book — essays, articles, reports, poems, chapters. Log what you read, see your own record, and follow what other people are reading.
 
-**Live demo:** https://reading-log-tau.vercel.app/
+**Live demo:** https://everything-counts.vercel.app/
 
 Demo-first prototype. Single-user with seeded sample data. Architected so a real database and accounts can be added without a rewrite.
 

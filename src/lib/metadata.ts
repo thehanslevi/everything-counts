@@ -81,7 +81,7 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
       headers: {
         // Some sites serve minimal markup without a browser-like UA.
         "User-Agent":
-          "Mozilla/5.0 (compatible; ReadingLogBot/0.1; +https://reading-log-tau.vercel.app)",
+          "Mozilla/5.0 (compatible; EverythingCountsBot/0.1; +https://everything-counts.vercel.app)",
         Accept: "text/html,application/xhtml+xml",
       },
       signal: controller.signal,
