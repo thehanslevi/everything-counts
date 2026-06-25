@@ -16,9 +16,9 @@ export function SiteHeader({ active }: { active?: "record" | "feed" }) {
     <header>
       <div className="border-b-[3px] border-black pb-4">
         <h1 className="font-structural text-5xl font-bold uppercase leading-[0.92] tracking-[-0.03em] text-black sm:text-6xl">
-          Reading
+          Everything
           <br />
-          <span className="text-accent">Log</span>
+          <span className="text-accent">Counts</span>
         </h1>
       </div>
       <p className="mt-4 font-structural text-sm font-bold uppercase tracking-[0.1em] text-black">

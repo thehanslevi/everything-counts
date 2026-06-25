@@ -28,8 +28,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Reading Log",
-  description: "An honest record of everything you read.",
+  title: "Everything Counts",
+  description: "An honest record of the reading that counts nowhere else.",
 };
 
 export default function RootLayout({
