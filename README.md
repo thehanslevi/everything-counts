@@ -1,6 +1,6 @@
 # Everything Counts
 
-Built by Hannah Levinson • more at hrlevinson.com
+Built by Hannah Levinson • more at [hrlevinson.com](https://hrlevinson.com)
 
 A reading log for everything that isn't a book — essays, articles, reports, poems, chapters. Log what you read, see your own record, and follow what other people are reading.
 
