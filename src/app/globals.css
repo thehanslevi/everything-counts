@@ -1,12 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  /* Japanese-poster palette: warm washi paper, sumi ink, one vermilion. */
-  --background: #f1ebdd;
-  --foreground: #17130d;
+  /* Loud Japanese-poster palette (Yokoo mode): a saturated taxi-yellow field,
+     sumi ink, and three clashing accents. Paper is the calm reading surface
+     inside cards. */
+  --background: #f2c400;
+  --foreground: #171106;
 
-  /* Vermilion — the rising-sun red. Change this one value to retune it. */
+  /* Vermilion — the rising sun. */
   --accent: #e0202a;
+  /* Shocking magenta and electric blue — the Yokoo clash. */
+  --accent-2: #e5007e;
+  --accent-3: #0053c0;
+
+  /* Warm paper for reading surfaces. */
+  --paper: #f7f1e3;
 
   /* Type stacks. Structural gothic for the poster frame, serif for the calm
      reading zone. Real :root variables so the body rule resolves them too. */
@@ -18,8 +26,11 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  /* Exposed as bg-accent / text-accent / border-accent. */
+  /* Exposed as bg-accent / text-accent / border-accent, etc. */
   --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-paper: var(--paper);
 
   /* font-structural = the poster frame, font-serif = the calm reading zone. */
   --font-structural: var(--stack-structural);
