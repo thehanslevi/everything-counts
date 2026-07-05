@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getUsers, getWork } from "@/lib/data/logs";
 import { CURRENT_USER_ID } from "@/lib/data/seed";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Stars } from "@/components/LogCard";
+import { Stars, formColor } from "@/components/LogCard";
 import type { Log, User } from "@/lib/data/types";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -47,27 +47,31 @@ export default async function WorkPage({
       <SiteHeader />
 
       {/* The work's identity, shown once. */}
-      <section className="mt-12 border border-foreground bg-[#f7f1e3]">
+      <section className="mt-12 border-[3px] border-foreground bg-paper">
         {work.image && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={work.image}
             alt=""
-            className="block h-56 w-full border-b border-foreground object-cover"
+            className="block h-56 w-full border-b-[3px] border-foreground object-cover"
           />
         )}
 
-        <div className="p-6 sm:p-8">
-          <span className="font-structural text-xs font-bold uppercase tracking-[0.2em] text-accent">
+        <div className="border-b-[3px] border-foreground">
+          <span
+            className={`${formColor(work.form)} inline-block px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.2em] text-white`}
+          >
             {work.form}
           </span>
+        </div>
 
-          <h1 className="mt-4 font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-4xl">
+        <div className="p-6 sm:p-8">
+          <h1 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-4xl">
             {work.title}
           </h1>
 
           {byline && (
-            <p className="mt-4 border-t border-foreground/25 pt-3 font-structural text-xs font-medium uppercase tracking-[0.1em] text-foreground/70">
+            <p className="mt-4 border-t-2 border-foreground pt-2 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/75">
               {byline}
             </p>
           )}
@@ -87,7 +91,7 @@ export default async function WorkPage({
 
       {/* The pool: who logged this piece. */}
       <section className="mt-16">
-        <div className="border-b border-foreground pb-3">
+        <div className="border-b-[3px] border-foreground pb-3">
           <h2 className="font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground">
             {you && followers > 0 ? (
               <>
@@ -124,22 +128,21 @@ function PooledLog({ log, user }: { log: Log; user?: User }) {
   const hasBody = Boolean(log.take) || log.rating != null;
 
   return (
-    <article className="border border-foreground bg-[#f7f1e3]">
+    <article className="border-[3px] border-foreground bg-paper">
       <div
-        className={`flex items-baseline justify-between gap-3 px-4 py-3 ${
-          hasBody ? "border-b border-foreground" : ""
+        className={`flex items-baseline justify-between gap-3 bg-foreground px-4 py-2.5 ${
+          hasBody ? "border-b-[3px] border-foreground" : ""
         }`}
       >
-        <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground">
-          <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
+        <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-background">
           {user ? user.name : "Someone"}
           {user && (
-            <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
+            <span className="ml-2 font-normal normal-case tracking-normal text-background/60">
               @{user.handle}
             </span>
           )}
         </span>
-        <time className="shrink-0 font-structural text-[0.65rem] font-medium uppercase tracking-[0.1em] text-foreground/50">
+        <time className="shrink-0 font-structural text-[0.65rem] font-medium uppercase tracking-[0.1em] text-background/60">
           {formatDate(log.createdAt)}
         </time>
       </div>

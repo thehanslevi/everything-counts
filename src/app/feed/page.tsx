@@ -12,12 +12,11 @@ export default async function Feed() {
       <SiteHeader active="feed" />
 
       <section className="mt-16">
-        <div className="flex items-end justify-between border-b border-foreground pb-3">
+        <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">
           <h2 className="font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
             Feed
           </h2>
-          <span className="font-structural text-xs font-bold uppercase tracking-[0.18em] text-accent">
-            <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
+          <span className="bg-accent px-2 py-1 font-structural text-xs font-bold uppercase tracking-[0.18em] text-white">
             People you follow
           </span>
         </div>
@@ -27,9 +26,12 @@ export default async function Feed() {
             Nothing shared yet.
           </p>
         ) : (
-          <ol className="mt-8 flex flex-col gap-10">
-            {items.map(({ log, user }) => (
-              <li key={log.id}>
+          <ol className="mt-10 flex flex-col gap-12">
+            {items.map(({ log, user }, i) => (
+              <li
+                key={log.id}
+                className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
+              >
                 <LogCard log={log} logger={user} />
               </li>
             ))}

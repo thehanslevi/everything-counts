@@ -1,11 +1,11 @@
 import Link from "next/link";
-import type { Log, User } from "@/lib/data/types";
+import type { Form, Log, User } from "@/lib/data/types";
 
-// The log card: the single repeating unit across the product. Japanese-poster
-// treatment — sumi type on a warm paper block, hairline rules, a vermilion form
-// label, and a disc-based rating. The card centers the piece and, in the feed,
-// the person who read it. Most logs have no take; the take, when present, is a
-// small secondary note. A takeless card is the norm and is complete on its own.
+// The log card: the single repeating unit across the product. Loud Japanese-
+// poster treatment — thick ink frames on a saturated field, a clashing color
+// banner per form, and a calm paper body so the reading itself stays quiet.
+// Most logs have no take; the take, when present, is a small secondary note.
+// A takeless card is the norm and is complete on its own.
 //
 // On the solo profile it renders without attribution. In the social feed, pass
 // `logger` to show whose log it is above the card.
@@ -21,8 +21,26 @@ function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : dateFormatter.format(d).toUpperCase();
 }
 
-// Rating as a row of discs: filled vermilion for the score, ink outline for the
-// rest. Exported so the work page reuses the exact same presentation.
+// Each form claims one of the clashing accents. The clash is the point: no
+// form is privileged, but every form is loud.
+const FORM_COLORS: Record<Form, string> = {
+  essay: "bg-accent",
+  article: "bg-accent-3",
+  report: "bg-accent-2",
+  poem: "bg-accent-2",
+  chapter: "bg-accent-3",
+  "short story": "bg-accent",
+  other: "bg-foreground",
+};
+
+export function formColor(form: Form): string {
+  return FORM_COLORS[form] ?? "bg-foreground";
+}
+
+// Rating as a row of discs cycling the three accents — a tiny Yokoo rainbow.
+// Exported so the work page reuses the exact same presentation.
+const DISC_COLORS = ["bg-accent", "bg-accent-2", "bg-accent-3"];
+
 export function Stars({ rating }: { rating: number }) {
   return (
     <span
@@ -32,8 +50,10 @@ export function Stars({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((n) => (
         <span
           key={n}
-          className={`size-2.5 rounded-full ${
-            n <= rating ? "bg-accent" : "border border-foreground/45"
+          className={`size-3 rounded-full ${
+            n <= rating
+              ? DISC_COLORS[(n - 1) % DISC_COLORS.length]
+              : "border-2 border-foreground/40"
           }`}
         />
       ))}
@@ -50,18 +70,17 @@ export function LogCard({ log, logger }: { log: Log; logger?: User }) {
       className="block"
       aria-label={`Open the work page for ${log.title}`}
     >
-      <article className="border border-foreground bg-[#f7f1e3] transition-colors hover:border-accent">
+      <article className="border-[3px] border-foreground bg-paper transition-transform hover:-translate-y-0.5">
         {logger && (
-          // Attribution: whose log this is, marked with a sun-disc. Feed only.
-          <div className="flex items-baseline justify-between gap-3 border-b border-foreground px-4 py-3">
-            <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground">
-              <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
+          // Attribution: whose log this is, on a hard ink band. Feed only.
+          <div className="flex items-baseline justify-between gap-3 border-b-[3px] border-foreground bg-foreground px-4 py-2.5">
+            <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-background">
               {logger.name}
-              <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
+              <span className="ml-2 font-normal normal-case tracking-normal text-background/60">
                 @{logger.handle}
               </span>
             </span>
-            <span className="shrink-0 text-right font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-foreground/50">
+            <span className="shrink-0 text-right font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-background/60">
               {logger.role}
             </span>
           </div>
@@ -75,26 +94,29 @@ export function LogCard({ log, logger }: { log: Log; logger?: User }) {
             src={log.image}
             alt=""
             loading="lazy"
-            className="block h-52 w-full border-b border-foreground object-cover"
+            className="block h-52 w-full border-b-[3px] border-foreground object-cover"
           />
         )}
 
-        <div className="p-6 sm:p-7">
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="font-structural text-xs font-bold uppercase tracking-[0.2em] text-accent">
-              {log.form}
-            </span>
-            <time className="shrink-0 font-structural text-[0.65rem] font-medium uppercase tracking-[0.14em] text-foreground/50">
-              {formatDate(log.createdAt)}
-            </time>
-          </div>
+        {/* Hard banner: the form's clashing color, date opposite. */}
+        <div className="flex items-stretch justify-between border-b-[3px] border-foreground">
+          <span
+            className={`${formColor(log.form)} px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.2em] text-white`}
+          >
+            {log.form}
+          </span>
+          <time className="self-center px-3 py-2 font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/60">
+            {formatDate(log.createdAt)}
+          </time>
+        </div>
 
-          <h3 className="mt-4 font-structural text-[1.5rem] font-extrabold uppercase leading-[1.04] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-[1.85rem]">
+        <div className="p-6 sm:p-7">
+          <h3 className="font-structural text-[1.5rem] font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-[1.85rem]">
             {log.title}
           </h3>
 
           {byline && (
-            <p className="mt-4 border-t border-foreground/25 pt-3 font-structural text-xs font-medium uppercase tracking-[0.1em] text-foreground/70">
+            <p className="mt-4 border-t-2 border-foreground pt-2 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/75">
               {byline}
             </p>
           )}
