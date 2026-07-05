@@ -12,8 +12,18 @@ export const dynamic = "force-dynamic";
 
 // Home. Signed in: log a piece + your chronological record, newest first.
 // Signed out: the pitch and recent activity across the network.
-export default async function Home() {
-  const { profile, hasSession } = await getSessionProfile();
+//
+// ?logurl= is the share-sheet landing pad: the iOS share extension opens the
+// app here with the shared URL, and the log form pre-fills from it.
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ logurl?: string }>;
+}) {
+  const [{ profile, hasSession }, { logurl }] = await Promise.all([
+    getSessionProfile(),
+    searchParams,
+  ]);
 
   if (!profile) {
     const recent = await getRecentActivity();
@@ -77,7 +87,7 @@ export default async function Home() {
           Log a piece
         </h2>
         <div className="p-5 sm:p-6">
-          <LogForm />
+          <LogForm initialUrl={logurl} />
         </div>
       </section>
 

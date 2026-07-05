@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createLog } from "@/app/actions";
 import { FORMS, type Form } from "@/lib/data/types";
 
@@ -23,14 +23,29 @@ const inputClass =
 const buttonClass =
   "rounded-none bg-accent px-5 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85 disabled:opacity-40";
 
-export function LogForm() {
-  const [fields, setFields] = useState(initialFields);
+export function LogForm({ initialUrl }: { initialUrl?: string }) {
+  const [fields, setFields] = useState({
+    ...initialFields,
+    url: initialUrl ?? "",
+  });
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Share-sheet landing pad: when a URL arrives via ?logurl= (from the iOS
+  // share extension or a bookmarklet), fetch its metadata immediately so the
+  // form is pre-filled the moment the app opens.
+  const autoFetched = useRef(false);
+  useEffect(() => {
+    if (initialUrl && !autoFetched.current) {
+      autoFetched.current = true;
+      void fetchMetadata(initialUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUrl]);
 
   function update<K extends keyof typeof fields>(
     key: K,
@@ -39,17 +54,17 @@ export function LogForm() {
     setFields((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleFetch() {
+  async function fetchMetadata(rawUrl: string) {
     setFetchError(null);
     setSaved(null);
-    if (!fields.url.trim()) {
+    if (!rawUrl.trim()) {
       setFetchError("Paste a link first.");
       return;
     }
     setFetching(true);
     try {
       const res = await fetch(
-        `/api/metadata?url=${encodeURIComponent(fields.url.trim())}`,
+        `/api/metadata?url=${encodeURIComponent(rawUrl.trim())}`,
       );
       const data = await res.json();
       if (!res.ok) {
@@ -69,6 +84,10 @@ export function LogForm() {
     } finally {
       setFetching(false);
     }
+  }
+
+  function handleFetch() {
+    void fetchMetadata(fields.url);
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
