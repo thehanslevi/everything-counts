@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   getLogsByUser,
@@ -12,6 +13,20 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ handle: string }>;
+}) {
+  const { handle } = await params;
+  const person = await getProfileByHandle(handle);
+  if (!person) return { title: "Everything Counts" };
+  return {
+    title: `${person.name} (@${person.handle}) — Everything Counts`,
+    description: `${person.name}'s reading record on Everything Counts.`,
+  };
+}
 
 // A person's public reading record, newest first.
 export default async function ProfilePage({
@@ -84,6 +99,16 @@ export default async function ProfilePage({
                 className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
               >
                 <LogCard log={log} />
+                {isSelf && (
+                  <div className="mt-1 text-right">
+                    <Link
+                      href={`/log/${log.id}/edit`}
+                      className="font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/40 hover:text-accent"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                )}
               </li>
             ))}
           </ol>

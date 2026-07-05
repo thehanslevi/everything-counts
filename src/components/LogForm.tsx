@@ -77,6 +77,10 @@ export function LogForm({ initialUrl }: { initialUrl?: string }) {
         author: data.author ?? "",
         source: data.source ?? "",
         image: data.image ?? "",
+        // Best-guess form from the URL, still overridable in the dropdown.
+        form: (FORMS as readonly string[]).includes(data.form)
+          ? (data.form as Form)
+          : prev.form,
       }));
       setFetched(true);
     } catch {

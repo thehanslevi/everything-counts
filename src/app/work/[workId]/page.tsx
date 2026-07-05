@@ -7,6 +7,23 @@ import type { Log, Profile } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ workId: string }>;
+}) {
+  const { workId } = await params;
+  const work = await getWork(workId);
+  if (!work) return { title: "Everything Counts" };
+  const byline = [work.author, work.source].filter(Boolean).join(" · ");
+  return {
+    title: `${work.title} — Everything Counts`,
+    description: byline
+      ? `${byline}. Logged on Everything Counts.`
+      : "Logged on Everything Counts.",
+  };
+}
+
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",

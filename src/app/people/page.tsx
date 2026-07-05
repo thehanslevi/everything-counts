@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getProfiles, getSessionProfile } from "@/lib/data/logs";
 import { FollowButton } from "@/components/FollowButton";
+import { InviteLink } from "@/components/InviteLink";
 import { SiteHeader } from "@/components/SiteHeader";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,13 @@ export default async function People() {
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
       <SiteHeader active="people" />
 
-      <section className="mt-16">
+      {profile && (
+        <div className="mt-14">
+          <InviteLink handle={profile.handle} />
+        </div>
+      )}
+
+      <section className={profile ? "mt-12" : "mt-16"}>
         <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">
           <h2 className="font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
             People

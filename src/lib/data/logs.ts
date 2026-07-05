@@ -233,6 +233,51 @@ export async function getWork(
   };
 }
 
+// A single log, only if it belongs to the signed-in user (for editing).
+export async function getOwnLog(id: string): Promise<Log | undefined> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return undefined;
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return data ? logFromRow(data as LogRow) : undefined;
+}
+
+// Update the editable fields of one of the signed-in user's logs. The URL is
+// deliberately immutable — it is the work identity; metadata is not.
+export async function updateLog(
+  id: string,
+  fields: Pick<NewLog, "title" | "author" | "source" | "image" | "form" | "take" | "rating">,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("logs")
+    .update({
+      title: fields.title.trim(),
+      author: fields.author?.trim() || null,
+      source: fields.source?.trim() || null,
+      image: fields.image?.trim() || null,
+      form: fields.form,
+      take: fields.take?.trim() || null,
+      rating: fields.rating ?? null,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// Delete one of the signed-in user's logs. RLS scopes the delete to own rows.
+export async function deleteLog(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("logs").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 // Create a log for the signed-in user. Public by default; RLS rejects the
 // insert if there is no session.
 export async function addLog(input: NewLog): Promise<Log> {

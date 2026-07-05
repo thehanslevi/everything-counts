@@ -2,9 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { addLog } from "@/lib/data/logs";
+import { addLog, deleteLog, updateLog } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
+
+const SITE_URL = "https://everything-counts.vercel.app";
+const FOUNDER_HANDLE = "hrlevinson";
+const INVITE_COOKIE = "ec-invited-by";
 
 export interface ActionResult {
   ok: boolean;
@@ -55,16 +60,85 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
   }
 }
 
+// Edit one of your logs (URL stays immutable — it is the work identity).
+export async function editLog(formData: FormData): Promise<ActionResult> {
+  const id = (formData.get("id") as string | null) ?? "";
+  const title = (formData.get("title") as string | null)?.trim() ?? "";
+  const formValue = (formData.get("form") as string | null) ?? "";
+  const ratingRaw = (formData.get("rating") as string | null)?.trim() ?? "";
+
+  if (!id) return { ok: false, error: "Missing log id." };
+  if (!title) return { ok: false, error: "A title is required." };
+  if (!FORMS.includes(formValue as Form)) {
+    return { ok: false, error: "Pick a form for the piece." };
+  }
+  let rating: number | null = null;
+  if (ratingRaw) {
+    const parsed = Number(ratingRaw);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+      return { ok: false, error: "Rating must be between 1 and 5." };
+    }
+    rating = parsed;
+  }
+
+  try {
+    await updateLog(id, {
+      title,
+      author: (formData.get("author") as string | null) ?? null,
+      source: (formData.get("source") as string | null) ?? null,
+      image: (formData.get("image") as string | null) ?? null,
+      form: formValue as Form,
+      take: (formData.get("take") as string | null) ?? null,
+      rating,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not save changes.",
+    };
+  }
+  revalidatePath("/");
+  revalidatePath("/feed");
+  redirect("/");
+}
+
+// Delete one of your logs, permanently.
+export async function removeLog(formData: FormData): Promise<ActionResult> {
+  const id = (formData.get("id") as string | null) ?? "";
+  if (!id) return { ok: false, error: "Missing log id." };
+  try {
+    await deleteLog(id);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not delete.",
+    };
+  }
+  revalidatePath("/");
+  revalidatePath("/feed");
+  redirect("/");
+}
+
 // --- Auth --------------------------------------------------------------------
 
 export async function signUp(formData: FormData): Promise<ActionResult> {
   const email = (formData.get("email") as string | null)?.trim() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
+  const inviteRef = (formData.get("ref") as string | null)?.trim().toLowerCase() ?? "";
   if (!email || password.length < 8) {
     return {
       ok: false,
       error: "Email and a password of at least 8 characters are required.",
     };
+  }
+
+  // Remember who invited this person across the confirm/onboard hop.
+  if (inviteRef && /^[a-z0-9_]{2,24}$/.test(inviteRef)) {
+    const cookieStore = await cookies();
+    cookieStore.set(INVITE_COOKIE, inviteRef, {
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
   }
 
   const supabase = await createClient();
@@ -132,6 +206,66 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
     }
     return { ok: false, error: error.message };
   }
+
+  // Seed the new person's graph so the feed is never dead air: follow the
+  // founder, and follow whoever invited them (disclosed on the welcome page;
+  // unfollow is one tap). Best-effort — failures never block onboarding.
+  const cookieStore = await cookies();
+  const inviteRef = cookieStore.get(INVITE_COOKIE)?.value;
+  const followHandles = new Set(
+    [FOUNDER_HANDLE, inviteRef].filter((h): h is string => Boolean(h)),
+  );
+  followHandles.delete(handle); // never self-follow
+  if (followHandles.size > 0) {
+    const { data: toFollow } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("handle", [...followHandles]);
+    for (const target of toFollow ?? []) {
+      if (target.id !== user.id) {
+        await supabase
+          .from("follows")
+          .insert({ follower_id: user.id, followee_id: target.id });
+      }
+    }
+  }
+  cookieStore.delete(INVITE_COOKIE);
+
+  redirect("/");
+}
+
+// --- Password reset ------------------------------------------------------------
+
+// Send the reset email. The link lands on /reset with a recovery code.
+export async function requestPasswordReset(
+  formData: FormData,
+): Promise<ActionResult> {
+  const email = (formData.get("email") as string | null)?.trim() ?? "";
+  if (!email) return { ok: false, error: "Enter your email." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${SITE_URL}/reset`,
+  });
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: false,
+    error: "Check your email for a reset link.",
+  };
+}
+
+// Set the new password (the /reset page has already exchanged the code for a
+// session by the time this runs).
+export async function updatePassword(
+  formData: FormData,
+): Promise<ActionResult> {
+  const password = (formData.get("password") as string | null) ?? "";
+  if (password.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { ok: false, error: error.message };
   redirect("/");
 }
 

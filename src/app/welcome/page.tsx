@@ -21,6 +21,10 @@ export default async function Welcome() {
         </h2>
         <div className="p-5 sm:p-6">
           <WelcomeForm />
+          <p className="mt-6 border-t border-foreground/25 pt-3 font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-foreground/50">
+            You&apos;ll start by following the people who brought you here —
+            unfollow anytime.
+          </p>
         </div>
       </section>
     </main>

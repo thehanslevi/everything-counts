@@ -12,6 +12,27 @@ export interface LinkMetadata {
   author: string | null;
   source: string | null; // publication / site name
   image: string | null; // lead image URL
+  form: string | null; // best-guess form from the URL; the user can override
+}
+
+// Guess the form from where the piece lives, so saving is usually one tap.
+// Conservative: only guess when the host is a strong signal; otherwise null
+// and the form field keeps its default. The user can always override.
+const FORM_GUESSES: [RegExp, string][] = [
+  [/arxiv\.org|ssrn\.com|nber\.org|biorxiv\.org|osf\.io/i, "report"],
+  [/rand\.org|brookings\.edu|urban\.org|mdrc\.org|pewresearch\.org/i, "report"],
+  [/\.pdf($|\?)/i, "report"],
+  [/poetryfoundation\.org|poets\.org|poetry/i, "poem"],
+  [/newyorker\.com\/(magazine|culture|books)|theatlantic\.com\/(ideas|magazine)/i, "essay"],
+  [/aeon\.co|thepointmag\.com|noemamag\.com|laphamsquarterly\.org/i, "essay"],
+  [/substack\.com/i, "essay"],
+];
+
+function guessForm(url: string): string | null {
+  for (const [pattern, form] of FORM_GUESSES) {
+    if (pattern.test(url)) return form;
+  }
+  return null;
 }
 
 // Pull the content of the first matching <meta> tag for any of the given
@@ -145,5 +166,6 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
     author,
     source,
     image,
+    form: guessForm(url.toString()),
   };
 }
