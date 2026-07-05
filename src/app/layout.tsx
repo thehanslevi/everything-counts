@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
 
@@ -31,6 +31,14 @@ const zenKaku = Zen_Kaku_Gothic_New({
 export const metadata: Metadata = {
   title: "Everything Counts",
   description: "An honest record of the reading that counts nowhere else.",
+};
+
+// viewport-fit=cover lets the poster field run edge-to-edge in the iOS shell;
+// the body's safe-area padding keeps content clear of the notch and home bar.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

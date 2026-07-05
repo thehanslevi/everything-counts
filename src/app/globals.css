@@ -43,4 +43,23 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--stack-structural);
+  /* Respect the notch / Dynamic Island / home bar inside the iOS shell
+     (viewport-fit=cover); resolves to 0 in ordinary browsers. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* No gray tap flash on iOS — the poster provides its own affordances. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS force-zooms the page when a focused input's font-size is under 16px.
+   Keep the desktop type scale but never trigger the zoom on touch screens. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
