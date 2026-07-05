@@ -1,38 +1,49 @@
 import Link from "next/link";
 
-// The masthead and section nav, shared by the profile and the feed. Active tab
-// is passed in by each page (server components, no client state needed).
+// The masthead and section nav, shared by the profile, feed, and work pages.
+// Japanese-poster treatment: sumi type and a single vermilion sun-disc on warm
+// paper, hairline rules, generous negative space. Active tab is passed in by
+// each page (server components, no client state needed).
 
 function tabClass(active: boolean): string {
   const base =
-    "flex-1 px-4 py-3 text-center font-structural text-sm font-bold uppercase tracking-[0.12em] transition-colors";
+    "font-structural text-sm font-bold uppercase tracking-[0.16em] transition-colors";
   return active
-    ? `${base} bg-black text-white`
-    : `${base} bg-white text-black hover:bg-accent hover:text-white`;
+    ? `${base} text-foreground`
+    : `${base} text-foreground/40 hover:text-foreground`;
 }
 
 export function SiteHeader({ active }: { active?: "record" | "feed" }) {
   return (
     <header>
-      <div className="border-b-[3px] border-black pb-4">
-        <h1 className="font-structural text-5xl font-bold uppercase leading-[0.92] tracking-[-0.03em] text-black sm:text-6xl">
+      <div className="flex items-start justify-between gap-4 sm:gap-6">
+        <h1 className="font-structural text-[2.35rem] font-black uppercase leading-[0.86] tracking-[-0.02em] text-foreground sm:text-7xl">
           Everything
           <br />
-          <span className="text-accent">Counts</span>
+          Counts
         </h1>
+        {/* The rising sun. */}
+        <span
+          aria-hidden
+          className="mt-1 block size-14 shrink-0 rounded-full bg-accent sm:size-24"
+        />
       </div>
-      <p className="mt-4 font-structural text-sm font-bold uppercase tracking-[0.1em] text-black">
+
+      <p className="mt-6 border-t border-foreground pt-3 font-structural text-xs font-medium uppercase tracking-[0.2em] text-foreground/70">
         An honest record of the reading that counts nowhere else.
       </p>
 
-      <nav className="mt-8 flex border-[3px] border-black">
+      <nav className="mt-8 flex items-center gap-8">
         <Link href="/" className={tabClass(active === "record")}>
+          {active === "record" && (
+            <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
+          )}
           Your record
         </Link>
-        <Link
-          href="/feed"
-          className={`border-l-[3px] border-black ${tabClass(active === "feed")}`}
-        >
+        <Link href="/feed" className={tabClass(active === "feed")}>
+          {active === "feed" && (
+            <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
+          )}
           Feed
         </Link>
       </nav>

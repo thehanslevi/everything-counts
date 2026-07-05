@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Newsreader, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono, Newsreader, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,12 +19,13 @@ const newsreader = Newsreader({
   style: ["normal", "italic"],
 });
 
-// Structural grotesque for the loud frame: titles, form tags, bylines, dates.
-// Wired to --font-structural in globals.css so the type stack is easy to swap.
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+// Structural gothic for the poster frame: masthead, titles, labels. A clean
+// Japanese-designed geometric gothic (heavy weights for poster scale). Wired to
+// --font-structural in globals.css so the type stack stays easy to swap.
+const zenKaku = Zen_Kaku_Gothic_New({
+  variable: "--font-zen-kaku",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "700", "900"],
 });
 
 export const metadata: Metadata = {
@@ -40,7 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} ${spaceGrotesk.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} ${zenKaku.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

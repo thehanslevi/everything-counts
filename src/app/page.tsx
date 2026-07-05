@@ -14,8 +14,8 @@ export default async function Home() {
       <SiteHeader active="record" />
 
       {/* Log a piece */}
-      <section className="mt-12 border-[3px] border-black">
-        <h2 className="border-b-[3px] border-black bg-black px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-white">
+      <section className="mt-14 border border-foreground">
+        <h2 className="bg-foreground px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-background">
           Log a piece
         </h2>
         <div className="p-5 sm:p-6">
@@ -25,17 +25,18 @@ export default async function Home() {
 
       {/* The record */}
       <section className="mt-16">
-        <div className="flex items-end justify-between border-b-[3px] border-black pb-3">
-          <h2 className="font-structural text-3xl font-bold uppercase tracking-[-0.02em] text-black">
+        <div className="flex items-end justify-between border-b border-foreground pb-3">
+          <h2 className="font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
             Your record
           </h2>
           <span className="font-structural text-xs font-bold uppercase tracking-[0.18em] text-accent">
+            <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
             Newest first
           </span>
         </div>
 
         {logs.length === 0 ? (
-          <p className="mt-8 font-structural text-sm font-bold uppercase tracking-wide text-black">
+          <p className="mt-8 font-structural text-sm font-bold uppercase tracking-wide text-foreground">
             Nothing logged yet.
           </p>
         ) : (

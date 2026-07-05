@@ -1,17 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
+  /* Japanese-poster palette: warm washi paper, sumi ink, one vermilion. */
+  --background: #f1ebdd;
+  --foreground: #17130d;
 
-  /* Electric accent. Change this one value to retune the red. */
-  --accent: #ff3b00;
+  /* Vermilion — the rising-sun red. Change this one value to retune it. */
+  --accent: #e0202a;
 
-  /* Type stacks. Swap the structural grotesque or the serif here; everything
-     downstream (utilities and the body default) follows. These are real
-     :root variables so the body rule below resolves them too. */
-  --stack-structural: var(--font-space-grotesk), "Helvetica Neue", Arial,
-    sans-serif;
+  /* Type stacks. Structural gothic for the poster frame, serif for the calm
+     reading zone. Real :root variables so the body rule resolves them too. */
+  --stack-structural: var(--font-zen-kaku), "Helvetica Neue", Arial, sans-serif;
   --stack-serif: var(--font-newsreader), Georgia, serif;
 }
 
@@ -22,7 +21,7 @@
   /* Exposed as bg-accent / text-accent / border-accent. */
   --color-accent: var(--accent);
 
-  /* font-structural = the loud frame, font-serif = the calm reading zone. */
+  /* font-structural = the poster frame, font-serif = the calm reading zone. */
   --font-structural: var(--stack-structural);
   --font-serif: var(--stack-serif);
   --font-sans: var(--font-geist-sans);
