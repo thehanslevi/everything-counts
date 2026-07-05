@@ -59,6 +59,22 @@ function hostname(url: string): string | null {
   }
 }
 
+// Some sites put junk in og:site_name — a full URL, or a scheme-prefixed
+// domain. Reduce URL-shaped values to a clean hostname so the byline reads
+// like a publication, not an address bar.
+function cleanSource(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return hostname(trimmed) ?? trimmed;
+  }
+  // Bare-domain-with-path shapes like "www.example.com/foo/"
+  if (/^www\./i.test(trimmed) || /^[a-z0-9.-]+\.[a-z]{2,}\/.*$/i.test(trimmed)) {
+    return trimmed.replace(/^www\./i, "").replace(/\/.*$/, "");
+  }
+  return trimmed;
+}
+
 export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
   // Validate and normalize the URL up front.
   let url: URL;
@@ -116,8 +132,10 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
     "twitter:creator",
   ]);
 
-  const source =
-    metaContent(head, ["og:site_name", "application-name"]) ?? hostname(url.toString());
+  const source = cleanSource(
+    metaContent(head, ["og:site_name", "application-name"]) ??
+      hostname(url.toString()),
+  );
 
   const image = metaContent(head, ["og:image", "twitter:image", "twitter:image:src"]);
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getSessionProfile, getWork } from "@/lib/data/logs";
+import { getFolloweeIds, getSessionProfile, getWork } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Stars, formColor } from "@/components/LogCard";
 import type { Log, Profile } from "@/lib/data/types";
@@ -37,6 +37,22 @@ export default async function WorkPage({
   const others = [...loggerIds].filter((id) => id !== viewer?.id).length;
   const people = others === 1 ? "person" : "people";
 
+  // Average rating across all logs that carry one (Goodreads book-page DNA,
+  // rendered visually minor per the spec).
+  const ratings = work.logs
+    .map((log) => log.rating)
+    .filter((r): r is number => r != null);
+  const avgRating =
+    ratings.length > 0
+      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+      : null;
+
+  // "Including N you follow" — the social-proof overlap for the viewer.
+  const followedLoggers = viewer
+    ? [...(await getFolloweeIds(viewer.id))].filter((id) => loggerIds.has(id))
+        .length
+    : 0;
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
       <SiteHeader />
@@ -71,6 +87,16 @@ export default async function WorkPage({
             </p>
           )}
 
+          {avgRating != null && (
+            <p className="mt-4 flex items-center gap-2">
+              <Stars rating={Math.round(avgRating)} />
+              <span className="font-structural text-[0.7rem] font-bold uppercase tracking-[0.12em] text-foreground/60">
+                {avgRating} avg · {ratings.length} rating
+                {ratings.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          )}
+
           {work.url && (
             <a
               href={work.url}
@@ -101,6 +127,13 @@ export default async function WorkPage({
               </>
             )}
           </h2>
+          {followedLoggers > 0 && !(you && others === followedLoggers && others === 0) && (
+            <p className="mt-1 font-structural text-xs font-bold uppercase tracking-[0.14em] text-foreground/60">
+              Including{" "}
+              <span className="text-accent">{followedLoggers}</span>{" "}
+              {followedLoggers === 1 ? "person" : "people"} you follow
+            </p>
+          )}
         </div>
 
         <ol className="mt-8 flex flex-col gap-6">

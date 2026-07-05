@@ -49,7 +49,23 @@ export async function SiteHeader({
         An honest record of the reading that counts nowhere else.
       </p>
 
-      <nav className="mt-8 flex flex-wrap items-center gap-3">
+      {/* Search: a plain GET form to /search. */}
+      <form action="/search" className="mt-8 flex">
+        <input
+          type="search"
+          name="q"
+          placeholder="Search works and people"
+          className="w-full rounded-none border-2 border-foreground bg-paper px-3 py-2 font-structural text-sm text-foreground outline-none placeholder:text-foreground/40 focus:border-accent"
+        />
+        <button
+          type="submit"
+          className="border-2 border-l-0 border-foreground bg-foreground px-4 font-structural text-xs font-bold uppercase tracking-[0.14em] text-background transition-colors hover:bg-accent hover:border-accent"
+        >
+          Search
+        </button>
+      </form>
+
+      <nav className="mt-6 flex flex-wrap items-center gap-3">
         <Link href="/" className={tabClass(active === "record")}>
           {profile ? "Your record" : "Home"}
         </Link>

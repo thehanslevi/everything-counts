@@ -65,7 +65,67 @@ export async function getProfiles(): Promise<Profile[]> {
   return (data ?? []).map(profileFromRow);
 }
 
+// --- Search ------------------------------------------------------------------
+
+// Escape %/_ so a query is matched literally inside ilike patterns.
+function likePattern(q: string): string {
+  return `%${q.replace(/[%_\\]/g, "\\$&")}%`;
+}
+
+// Search shared logs by title, author, or source, grouped into works (one
+// entry per work, newest log wins, with the number of distinct loggers).
+export async function searchWorks(
+  q: string,
+): Promise<{ log: Log; loggerCount: number }[]> {
+  const supabase = await createClient();
+  const pattern = likePattern(q);
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("shared", true)
+    .or(`title.ilike.${pattern},author.ilike.${pattern},source.ilike.${pattern}`)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const byWork = new Map<string, { log: Log; loggers: Set<string> }>();
+  for (const row of (data ?? []) as LogRow[]) {
+    const log = logFromRow(row);
+    const entry = byWork.get(log.workId);
+    if (entry) {
+      entry.loggers.add(log.userId);
+    } else {
+      byWork.set(log.workId, { log, loggers: new Set([log.userId]) });
+    }
+  }
+  return [...byWork.values()].map(({ log, loggers }) => ({
+    log,
+    loggerCount: loggers.size,
+  }));
+}
+
+// Search people by handle, name, or role.
+export async function searchProfiles(q: string): Promise<Profile[]> {
+  const supabase = await createClient();
+  const pattern = likePattern(q);
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, handle, name, role")
+    .or(`handle.ilike.${pattern},name.ilike.${pattern},role.ilike.${pattern}`)
+    .limit(20);
+  return (data ?? []).map(profileFromRow);
+}
+
 // --- Follows -----------------------------------------------------------------
+
+// Everyone the given user follows, as a set of ids.
+export async function getFolloweeIds(followerId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("follows")
+    .select("followee_id")
+    .eq("follower_id", followerId);
+  return new Set((data ?? []).map((f) => f.followee_id));
+}
 
 export async function isFollowing(
   followerId: string,

@@ -9,6 +9,7 @@ import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { FollowButton } from "@/components/FollowButton";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
+import { computeStats, formatEstTime } from "@/lib/data/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,13 @@ export default async function ProfilePage({
         )}
       </section>
 
+      {/* The anchor metric: pieces + estimated time, form-neutral. Quantity is
+          a feature (the spec's reversed decision) — an honest mirror, shown on
+          every profile so comparison can motivate. */}
+      {logs.length > 0 && (
+        <StatsBand logs={logs} isSelf={isSelf} name={person.name} />
+      )}
+
       <section className="mt-16">
         <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">
           <h2 className="font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
@@ -93,5 +101,53 @@ export default async function ProfilePage({
         </section>
       )}
     </main>
+  );
+}
+
+function plural(form: string, count: number): string {
+  if (count === 1) return form;
+  return form === "short story" ? "short stories" : `${form}s`;
+}
+
+// The reading-so-far band: "You read 5 things, about 1.5 hrs" for the year,
+// with the form texture underneath and an all-time line when it differs.
+function StatsBand({
+  logs,
+  isSelf,
+  name,
+}: {
+  logs: Parameters<typeof computeStats>[0];
+  isSelf: boolean;
+  name: string;
+}) {
+  const stats = computeStats(logs);
+  const y = stats.thisYear;
+  const who = isSelf ? "You read" : `${name.split(" ")[0]} read`;
+  const forms = Object.entries(y.byForm).sort(([, a], [, b]) => b - a);
+
+  return (
+    <section className="mt-10 border-[3px] border-foreground bg-foreground p-6 sm:p-7">
+      <p className="font-structural text-xs font-bold uppercase tracking-[0.2em] text-background/60">
+        {stats.year}
+      </p>
+      <p className="mt-2 font-structural text-2xl font-black uppercase leading-[1.05] tracking-[-0.01em] text-background sm:text-3xl">
+        {who} <span className="text-accent">{y.pieces}</span>{" "}
+        {y.pieces === 1 ? "thing" : "things"},{" "}
+        <span className="text-accent">{formatEstTime(y.estMinutes)}</span>
+      </p>
+      {forms.length > 0 && (
+        <p className="mt-3 font-structural text-[0.7rem] font-bold uppercase tracking-[0.14em] text-background/60">
+          {forms
+            .map(([form, count]) => `${count} ${plural(form, count)}`)
+            .join(" · ")}
+        </p>
+      )}
+      {stats.allTime.pieces > y.pieces && (
+        <p className="mt-1 font-structural text-[0.7rem] font-bold uppercase tracking-[0.14em] text-background/40">
+          All time: {stats.allTime.pieces} things,{" "}
+          {formatEstTime(stats.allTime.estMinutes)}
+        </p>
+      )}
+    </section>
   );
 }
