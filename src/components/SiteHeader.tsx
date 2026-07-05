@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { getSessionProfile } from "@/lib/data/logs";
+import { signOut } from "@/app/actions";
 
-// The masthead and section nav, shared by the profile, feed, and work pages.
-// Loud Japanese-poster treatment (Yokoo mode): a radiating sunburst, stroked
-// display type, and a black strapline band on a saturated yellow field. Active
-// tab is passed in by each page (server components, no client state needed).
+// The masthead and section nav, shared across pages. Loud Japanese-poster
+// treatment (Yokoo mode). Session-aware: signed-out visitors get a sign-in
+// link; signed-in users get their handle and sign out. Active tab is passed in
+// by each page.
 
 function tabClass(active: boolean): string {
   const base =
@@ -13,17 +15,25 @@ function tabClass(active: boolean): string {
     : `${base} text-foreground hover:bg-foreground/10`;
 }
 
-export function SiteHeader({ active }: { active?: "record" | "feed" }) {
+export async function SiteHeader({
+  active,
+}: {
+  active?: "record" | "feed" | "people";
+}) {
+  const { profile, hasSession } = await getSessionProfile();
+
   return (
     <header>
       <div className="flex items-start justify-between gap-4 sm:gap-6">
-        <h1 className="font-structural text-[2.35rem] font-black uppercase leading-[0.86] tracking-[-0.02em] text-foreground sm:text-7xl">
-          Everything
-          <br />
-          <span className="text-transparent [-webkit-text-stroke:2.5px_var(--foreground)] sm:[-webkit-text-stroke:3.5px_var(--foreground)]">
-            Counts
-          </span>
-        </h1>
+        <Link href="/" aria-label="Everything Counts home">
+          <h1 className="font-structural text-[2.35rem] font-black uppercase leading-[0.86] tracking-[-0.02em] text-foreground sm:text-7xl">
+            Everything
+            <br />
+            <span className="text-transparent [-webkit-text-stroke:2.5px_var(--foreground)] sm:[-webkit-text-stroke:3.5px_var(--foreground)]">
+              Counts
+            </span>
+          </h1>
+        </Link>
 
         {/* The rising sun, radiating. */}
         <span
@@ -39,13 +49,53 @@ export function SiteHeader({ active }: { active?: "record" | "feed" }) {
         An honest record of the reading that counts nowhere else.
       </p>
 
-      <nav className="mt-8 flex items-center gap-3">
+      <nav className="mt-8 flex flex-wrap items-center gap-3">
         <Link href="/" className={tabClass(active === "record")}>
-          Your record
+          {profile ? "Your record" : "Home"}
         </Link>
-        <Link href="/feed" className={tabClass(active === "feed")}>
-          Feed
+        {profile && (
+          <Link href="/feed" className={tabClass(active === "feed")}>
+            Feed
+          </Link>
+        )}
+        <Link href="/people" className={tabClass(active === "people")}>
+          People
         </Link>
+
+        <span className="ml-auto flex items-center gap-3">
+          {profile ? (
+            <>
+              <Link
+                href={`/u/${profile.handle}`}
+                className="font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground hover:underline"
+              >
+                @{profile.handle}
+              </Link>
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/50 hover:text-foreground"
+                >
+                  Sign out
+                </button>
+              </form>
+            </>
+          ) : hasSession ? (
+            <Link
+              href="/welcome"
+              className="bg-accent px-3 py-1.5 font-structural text-xs font-bold uppercase tracking-[0.1em] text-white"
+            >
+              Finish setup
+            </Link>
+          ) : (
+            <Link
+              href="/signin"
+              className="bg-accent px-3 py-1.5 font-structural text-xs font-bold uppercase tracking-[0.1em] text-white"
+            >
+              Sign in
+            </Link>
+          )}
+        </span>
       </nav>
     </header>
   );

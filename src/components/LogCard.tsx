@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Form, Log, User } from "@/lib/data/types";
+import type { Form, Log, Profile } from "@/lib/data/types";
 
 // The log card: the single repeating unit across the product. Loud Japanese-
 // poster treatment — thick ink frames on a saturated field, a clashing color
@@ -61,7 +61,7 @@ export function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function LogCard({ log, logger }: { log: Log; logger?: User }) {
+export function LogCard({ log, logger }: { log: Log; logger?: Profile }) {
   const byline = [log.author, log.source].filter(Boolean).join(" · ");
 
   return (

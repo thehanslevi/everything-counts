@@ -4,9 +4,9 @@ Built by Hannah Levinson • more at [hrlevinson.com](https://hrlevinson.com)
 
 A reading log for everything that isn't a book — essays, articles, reports, poems, chapters. Log what you read, see your own record, and follow what other people are reading.
 
-**Live demo:** https://everything-counts.vercel.app/
+**Live:** https://everything-counts.vercel.app/
 
-Demo-first prototype. Single-user with seeded sample data. Architected so a real database and accounts can be added without a rewrite.
+Real accounts, real data: sign up, claim a handle, log what you read, follow people. Postgres (Supabase) with row-level security behind a thin data-access layer.
 
 <!--
   Screenshots: drop the two image files into the /docs folder at the paths
@@ -35,13 +35,14 @@ Demo-first prototype. Single-user with seeded sample data. Architected so a real
 ## Stack
 
 - Next.js (App Router), TypeScript, Tailwind, deployed on Vercel.
-- A data-access layer (`getLogs`, `getFeed`, `getWork`) sits between the app and storage. Storage is seeded/in-memory for the demo; a real database plugs in behind that layer.
+- Supabase: Postgres + Auth, with row-level security (you can only write your own rows; reading is public by product design).
+- A data-access layer (`getLogsByUser`, `getFeed`, `getWork`) sits between the app and storage; it is the only module that knows the storage is Supabase.
 - One server route fetches link metadata (OpenGraph) from a pasted URL.
-- Built and deployed in phases: empty deploy first, then logging, profile, feed, work pages.
+- Built and deployed in phases: empty deploy first, then logging, profile, feed, work pages, then real accounts.
 
 ## Out of scope (for now)
 
-Real auth and accounts, a persistent database, rich deduplication, a reading metric, multimedia (video essays, podcasts), and an algorithmic feed. Each was left out deliberately; the architecture leaves room for them.
+A private-log toggle (the flag exists in the data model), rich deduplication, a reading metric, multimedia (video essays, podcasts), and an algorithmic feed. Each was left out deliberately; the architecture leaves room for them.
 
 ## Design
 

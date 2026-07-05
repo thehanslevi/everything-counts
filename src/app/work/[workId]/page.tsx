@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
-import { getUsers, getWork } from "@/lib/data/logs";
-import { CURRENT_USER_ID } from "@/lib/data/seed";
+import Link from "next/link";
+import { getSessionProfile, getWork } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Stars, formColor } from "@/components/LogCard";
-import type { Log, User } from "@/lib/data/types";
+import type { Log, Profile } from "@/lib/data/types";
+
+export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -16,31 +18,24 @@ function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : dateFormatter.format(d).toUpperCase();
 }
 
-// "Logged by N people you follow", accounting for whether the current user is
-// among the loggers.
-function loggedByLine(logs: Log[]): { you: boolean; followers: number } {
-  const ids = new Set(logs.map((log) => log.userId));
-  return {
-    you: ids.has(CURRENT_USER_ID),
-    followers: [...ids].filter((id) => id !== CURRENT_USER_ID).length,
-  };
-}
-
 export default async function WorkPage({
   params,
 }: {
   params: Promise<{ workId: string }>;
 }) {
   const { workId } = await params;
-  const work = await getWork(workId);
+  const [work, { profile: viewer }] = await Promise.all([
+    getWork(workId),
+    getSessionProfile(),
+  ]);
   if (!work) notFound();
 
-  const users = await getUsers();
-  const usersById = new Map(users.map((u) => [u.id, u]));
-
   const byline = [work.author, work.source].filter(Boolean).join(" · ");
-  const { you, followers } = loggedByLine(work.logs);
-  const people = followers === 1 ? "person" : "people";
+
+  const loggerIds = new Set(work.logs.map((log) => log.userId));
+  const you = viewer ? loggerIds.has(viewer.id) : false;
+  const others = [...loggerIds].filter((id) => id !== viewer?.id).length;
+  const people = others === 1 ? "person" : "people";
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
@@ -93,17 +88,16 @@ export default async function WorkPage({
       <section className="mt-16">
         <div className="border-b-[3px] border-foreground pb-3">
           <h2 className="font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground">
-            {you && followers > 0 ? (
+            {you && others > 0 ? (
               <>
-                You and <span className="text-accent">{followers}</span> {people}{" "}
-                you follow logged this
+                You and <span className="text-accent">{others}</span> other{" "}
+                {people} logged this
               </>
             ) : you ? (
               <>You logged this</>
             ) : (
               <>
-                Logged by <span className="text-accent">{followers}</span>{" "}
-                {people} you follow
+                Logged by <span className="text-accent">{others}</span> {people}
               </>
             )}
           </h2>
@@ -112,7 +106,7 @@ export default async function WorkPage({
         <ol className="mt-8 flex flex-col gap-6">
           {work.logs.map((log) => (
             <li key={log.id}>
-              <PooledLog log={log} user={usersById.get(log.userId)} />
+              <PooledLog log={log} user={work.loggers.get(log.userId)} />
             </li>
           ))}
         </ol>
@@ -124,7 +118,7 @@ export default async function WorkPage({
 // One entry in the pool: who read it and when, plus their take and rating if
 // they left any. A bare entry (no take, no rating) is the norm and is complete
 // on its own — it records that this person read the piece.
-function PooledLog({ log, user }: { log: Log; user?: User }) {
+function PooledLog({ log, user }: { log: Log; user?: Profile }) {
   const hasBody = Boolean(log.take) || log.rating != null;
 
   return (
@@ -135,11 +129,15 @@ function PooledLog({ log, user }: { log: Log; user?: User }) {
         }`}
       >
         <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-background">
-          {user ? user.name : "Someone"}
-          {user && (
-            <span className="ml-2 font-normal normal-case tracking-normal text-background/60">
-              @{user.handle}
-            </span>
+          {user ? (
+            <Link href={`/u/${user.handle}`} className="hover:underline">
+              {user.name}
+              <span className="ml-2 font-normal normal-case tracking-normal text-background/60">
+                @{user.handle}
+              </span>
+            </Link>
+          ) : (
+            "Someone"
           )}
         </span>
         <time className="shrink-0 font-structural text-[0.65rem] font-medium uppercase tracking-[0.1em] text-background/60">

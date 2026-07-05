@@ -1,11 +1,18 @@
-import { getFeed } from "@/lib/data/logs";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getFeed, getSessionProfile } from "@/lib/data/logs";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 
-// Feed: what the people you follow (and you) have shared, newest first. Not
-// algorithmic — reverse chronological. Reuses LogCard with attribution.
+export const dynamic = "force-dynamic";
+
+// Feed: what the people you follow (and you) have logged, newest first. Not
+// algorithmic — reverse chronological.
 export default async function Feed() {
-  const items = await getFeed();
+  const { profile, hasSession } = await getSessionProfile();
+  if (!profile) redirect(hasSession ? "/welcome" : "/signin");
+
+  const items = await getFeed(profile.id);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
@@ -22,9 +29,18 @@ export default async function Feed() {
         </div>
 
         {items.length === 0 ? (
-          <p className="mt-8 font-structural text-sm font-bold uppercase tracking-wide text-foreground">
-            Nothing shared yet.
-          </p>
+          <div className="mt-8">
+            <p className="font-structural text-sm font-bold uppercase tracking-wide text-foreground">
+              Nothing here yet.
+            </p>
+            <p className="mt-2 font-serif text-[15px] leading-[1.6] text-foreground/75">
+              Your feed is the logging activity of the people you follow.{" "}
+              <Link href="/people" className="text-accent underline">
+                Find people
+              </Link>{" "}
+              or log your first piece — your own logs show here too.
+            </p>
+          </div>
         ) : (
           <ol className="mt-10 flex flex-col gap-12">
             {items.map(({ log, user }, i) => (

@@ -1,67 +1,162 @@
-import { store } from "./store";
-import { CURRENT_USER_ID } from "./seed";
+import { createClient } from "@/lib/supabase/server";
 import { workIdFor } from "./url";
-import type { FeedItem, Log, NewLog, User, Work } from "./types";
+import {
+  logFromRow,
+  profileFromRow,
+  type FeedItem,
+  type Log,
+  type LogRow,
+  type NewLog,
+  type Profile,
+  type ProfileRow,
+  type Work,
+} from "./types";
 
-// Data-access layer for logs and users.
-//
-// This is the seam the rest of the app talks to. Callers use these functions
-// and never touch the store directly, so the backing store can be swapped for a
-// real database later without changing any caller. The functions are async on
-// purpose: a database implementation will be async, and writing callers against
-// async signatures now means the swap requires no changes upstream.
+// Data-access layer. This is the seam the rest of the app talks to; it is the
+// only module that knows the storage is Supabase. RLS enforces write access
+// (you can only write your own rows); reads are public by product design.
 
-function byNewestFirst(a: Log, b: Log): number {
-  return b.createdAt.localeCompare(a.createdAt);
+type LogWithProfileRow = LogRow & { profiles: ProfileRow };
+
+// --- Session / profiles ------------------------------------------------------
+
+// The signed-in user's profile, or null when signed out or not yet onboarded.
+// The second flag distinguishes "no session" from "session but no profile yet"
+// (a freshly signed-up user who still needs to pick a handle).
+export async function getSessionProfile(): Promise<{
+  profile: Profile | null;
+  hasSession: boolean;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { profile: null, hasSession: false };
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, handle, name, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return { profile: data ? profileFromRow(data) : null, hasSession: true };
 }
 
-// Return the current user's own logs (shared or not), newest first. This is the
-// personal record behind the profile.
-export async function getLogs(): Promise<Log[]> {
-  return store.logs
-    .filter((log) => log.userId === CURRENT_USER_ID)
-    .sort(byNewestFirst);
+export async function getProfileByHandle(
+  handle: string,
+): Promise<Profile | undefined> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, handle, name, role")
+    .eq("handle", handle.toLowerCase())
+    .maybeSingle();
+  return data ? profileFromRow(data) : undefined;
 }
 
-// Return a single log by id, or undefined if it does not exist.
-export async function getLog(id: string): Promise<Log | undefined> {
-  return store.logs.find((log) => log.id === id);
+// Everyone on the network, newest first. Powers the People page.
+export async function getProfiles(): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, handle, name, role")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  return (data ?? []).map(profileFromRow);
 }
 
-// Return a single user by id, or undefined.
-export async function getUser(id: string): Promise<User | undefined> {
-  return store.users.find((user) => user.id === id);
+// --- Follows -----------------------------------------------------------------
+
+export async function isFollowing(
+  followerId: string,
+  followeeId: string,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("follows")
+    .select("follower_id")
+    .eq("follower_id", followerId)
+    .eq("followee_id", followeeId)
+    .maybeSingle();
+  return Boolean(data);
 }
 
-// Return all known users (the current user plus everyone they follow).
-export async function getUsers(): Promise<User[]> {
-  return [...store.users];
+// --- Logs --------------------------------------------------------------------
+
+// One user's shared logs, newest first (their public record).
+export async function getLogsByUser(userId: string): Promise<Log[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as LogRow[]).map(logFromRow);
 }
 
-// Return the reverse-chronological feed: every shared log across the current
-// user and the people they follow, each joined with the user who shared it.
-// Not algorithmic — purely newest-first. Following is implied by the seed, so
-// every shared log qualifies.
-export async function getFeed(): Promise<FeedItem[]> {
-  const usersById = new Map(store.users.map((user) => [user.id, user]));
-  return store.logs
-    .filter((log) => log.shared)
-    .sort(byNewestFirst)
-    .map((log) => ({ log, user: usersById.get(log.userId) }))
-    .filter((item): item is FeedItem => item.user !== undefined);
+// The reverse-chronological feed for a viewer: shared logs from the people
+// they follow plus their own. Not algorithmic.
+export async function getFeed(viewerId: string): Promise<FeedItem[]> {
+  const supabase = await createClient();
+
+  const { data: follows } = await supabase
+    .from("follows")
+    .select("followee_id")
+    .eq("follower_id", viewerId);
+
+  const userIds = [viewerId, ...(follows ?? []).map((f) => f.followee_id)];
+
+  const { data } = await supabase
+    .from("logs")
+    .select("*, profiles(id, handle, name, role)")
+    .in("user_id", userIds)
+    .eq("shared", true)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  return ((data ?? []) as LogWithProfileRow[]).map((row) => ({
+    log: logFromRow(row),
+    user: profileFromRow(row.profiles),
+  }));
 }
 
-// Resolve a work by id: its pooled logs (newest first) plus an identity drawn
-// from them. Returns undefined if no log resolves to this work.
-export async function getWork(workId: string): Promise<Work | undefined> {
-  const logs = store.logs
-    .filter((log) => log.workId === workId)
-    .sort(byNewestFirst);
+// Recent shared logs across the whole network, for the signed-out landing.
+export async function getRecentActivity(limit = 20): Promise<FeedItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("logs")
+    .select("*, profiles(id, handle, name, role)")
+    .eq("shared", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-  if (logs.length === 0) return undefined;
+  return ((data ?? []) as LogWithProfileRow[]).map((row) => ({
+    log: logFromRow(row),
+    user: profileFromRow(row.profiles),
+  }));
+}
 
+// Resolve a work: its pooled logs (newest first, with loggers) plus an
+// identity drawn from them.
+export async function getWork(
+  workId: string,
+): Promise<(Work & { loggers: Map<string, Profile> }) | undefined> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("logs")
+    .select("*, profiles(id, handle, name, role)")
+    .eq("work_id", workId)
+    .eq("shared", true)
+    .order("created_at", { ascending: false });
+
+  const rows = (data ?? []) as LogWithProfileRow[];
+  if (rows.length === 0) return undefined;
+
+  const logs = rows.map(logFromRow);
+  const loggers = new Map(
+    rows.map((row) => [row.user_id, profileFromRow(row.profiles)]),
+  );
   const newest = logs[0];
-  // Prefer an image and a URL from whichever log captured one.
   const withImage = logs.find((log) => log.image);
   const withUrl = logs.find((log) => log.url);
 
@@ -74,33 +169,39 @@ export async function getWork(workId: string): Promise<Work | undefined> {
     image: withImage?.image ?? null,
     url: withUrl?.url ?? null,
     logs,
+    loggers,
   };
 }
 
-// Create and persist a new log for the current user, returning the stored
-// record. Logs are public by default (the Letterboxd-diary model): logging a
-// piece is the act of sharing it, so it appears in the feed whether or not it
-// carries a take. The `shared` flag stays on the model so a private opt-out can
-// be added later as a filter in getFeed — that toggle is not built yet.
+// Create a log for the signed-in user. Public by default; RLS rejects the
+// insert if there is no session.
 export async function addLog(input: NewLog): Promise<Log> {
-  const id = crypto.randomUUID();
-  const url = input.url?.trim() ? input.url.trim() : null;
-  const log: Log = {
-    id,
-    userId: CURRENT_USER_ID,
-    shared: true,
-    workId: workIdFor(url, input.title),
-    url,
-    title: input.title.trim(),
-    author: input.author?.trim() ? input.author.trim() : null,
-    source: input.source?.trim() ? input.source.trim() : null,
-    image: input.image?.trim() ? input.image.trim() : null,
-    form: input.form,
-    take: input.take?.trim() ? input.take.trim() : null,
-    rating: input.rating ?? null,
-    createdAt: new Date().toISOString(),
-  };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in to log a piece.");
 
-  store.logs.push(log);
-  return log;
+  const url = input.url?.trim() ? input.url.trim() : null;
+
+  const { data, error } = await supabase
+    .from("logs")
+    .insert({
+      user_id: user.id,
+      shared: true,
+      work_id: workIdFor(url, input.title),
+      url,
+      title: input.title.trim(),
+      author: input.author?.trim() || null,
+      source: input.source?.trim() || null,
+      image: input.image?.trim() || null,
+      form: input.form,
+      take: input.take?.trim() || null,
+      rating: input.rating ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return logFromRow(data as LogRow);
 }

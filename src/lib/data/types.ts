@@ -1,8 +1,7 @@
-// Shared data types for the reading log.
+// Shared data types for Everything Counts.
 //
 // These types are owned by the data-access layer. The rest of the app imports
-// them from here, never from a storage implementation, so the backing store can
-// change (in-memory today, a real database later) without touching callers.
+// them from here, never from a storage implementation.
 
 // In-category reading forms. Books as a completed unit are deliberately
 // excluded (that is Goodreads' territory); a chapter stays, because reading one
@@ -21,55 +20,35 @@ export const FORMS = [
 
 export type Form = (typeof FORMS)[number];
 
-// A person on the network. The current user plus the people they follow. Follow
-// relationships are implied by the seed for now: everyone here is followed.
-export interface User {
+// A person on the network.
+export interface Profile {
   id: string;
+  handle: string;
   name: string;
-  handle: string; // without the leading @
-  role: string; // one-line identity
+  role: string | null; // one-line identity
 }
 
-// A log is one person recording one piece they have read.
+// A log is one person recording one piece they have read. Public by default:
+// logging a piece is the act of sharing it. The `shared` flag exists for a
+// future private opt-out.
 export interface Log {
   id: string;
-  userId: string; // who logged it
-  shared: boolean; // public by default; the flag stays for a future private opt-out
-  workId: string; // the piece this log resolves to (from its normalized canonical URL)
-  url: string | null; // null when the piece was entered by hand (e.g. a book)
-  title: string;
-  author: string | null;
-  source: string | null; // publication or site name
-  image: string | null; // lead image URL
-  form: Form;
-  take: string | null; // optional short note on why it mattered
-  rating: number | null; // optional, 1-5
-  createdAt: string; // ISO timestamp
-}
-
-// A work: one piece, with every log made against it pooled together. The
-// identity fields are drawn from the logs (canonical-URL clustering means
-// different people may have logged slightly different metadata).
-export interface Work {
-  id: string; // workId
+  userId: string;
+  shared: boolean;
+  workId: string; // the piece this log resolves to (normalized canonical URL)
+  url: string | null;
   title: string;
   author: string | null;
   source: string | null;
-  form: Form;
   image: string | null;
-  url: string | null; // a representative original URL, for linking out
-  logs: Log[]; // newest first
+  form: Form;
+  take: string | null;
+  rating: number | null;
+  createdAt: string; // ISO timestamp
 }
 
-// A feed entry: a shared log joined with the user who shared it, so the feed
-// can attribute each card without a second lookup.
-export interface FeedItem {
-  log: Log;
-  user: User;
-}
-
-// The shape a caller provides to create a log. The data layer fills in id and
-// createdAt.
+// The shape a caller provides to create a log. The data layer fills in id,
+// userId, workId, and createdAt.
 export interface NewLog {
   url?: string | null;
   title: string;
@@ -79,4 +58,72 @@ export interface NewLog {
   form: Form;
   take?: string | null;
   rating?: number | null;
+}
+
+// A feed entry: a shared log joined with the person who logged it.
+export interface FeedItem {
+  log: Log;
+  user: Profile;
+}
+
+// A work: one piece, with every log made against it pooled together.
+export interface Work {
+  id: string;
+  title: string;
+  author: string | null;
+  source: string | null;
+  form: Form;
+  image: string | null;
+  url: string | null;
+  logs: Log[]; // newest first
+}
+
+// --- Row mapping -----------------------------------------------------------
+
+// Database rows are snake_case; these helpers convert them once, at the data
+// layer boundary, so nothing above it knows about the database shape.
+
+export interface LogRow {
+  id: string;
+  user_id: string;
+  shared: boolean;
+  work_id: string;
+  url: string | null;
+  title: string;
+  author: string | null;
+  source: string | null;
+  image: string | null;
+  form: string;
+  take: string | null;
+  rating: number | null;
+  created_at: string;
+}
+
+export interface ProfileRow {
+  id: string;
+  handle: string;
+  name: string;
+  role: string | null;
+}
+
+export function logFromRow(row: LogRow): Log {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    shared: row.shared,
+    workId: row.work_id,
+    url: row.url,
+    title: row.title,
+    author: row.author,
+    source: row.source,
+    image: row.image,
+    form: row.form as Form,
+    take: row.take,
+    rating: row.rating,
+    createdAt: row.created_at,
+  };
+}
+
+export function profileFromRow(row: ProfileRow): Profile {
+  return { id: row.id, handle: row.handle, name: row.name, role: row.role };
 }
