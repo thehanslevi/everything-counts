@@ -5,6 +5,7 @@ import {
   getSessionProfile,
   isFollowing,
 } from "@/lib/data/logs";
+import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { FollowButton } from "@/components/FollowButton";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -80,6 +81,17 @@ export default async function ProfilePage({
           </ol>
         )}
       </section>
+
+      {isSelf && (
+        <section className="mt-20 border-[3px] border-foreground bg-paper">
+          <h2 className="border-b-[3px] border-foreground bg-foreground px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-background">
+            Account
+          </h2>
+          <div className="p-5 sm:p-6">
+            <DeleteAccountForm handle={person.handle} />
+          </div>
+        </section>
+      )}
     </main>
   );
 }

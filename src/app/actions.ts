@@ -135,6 +135,38 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
   redirect("/");
 }
 
+// Permanently delete the signed-in user's account and everything they logged.
+// Required in-app by App Store guideline 5.1.1. The database function is a
+// security-definer RPC that deletes exactly the calling auth user; the delete
+// cascades to their profile, logs, and follows.
+export async function deleteAccount(formData: FormData): Promise<ActionResult> {
+  const confirmation = ((formData.get("confirm") as string | null) ?? "")
+    .trim()
+    .toLowerCase();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in first." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("handle")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile || confirmation !== profile.handle) {
+    return { ok: false, error: "Type your handle exactly to confirm." };
+  }
+
+  const { error } = await supabase.rpc("delete_account");
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.auth.signOut();
+  redirect("/");
+}
+
 // --- Follows -----------------------------------------------------------------
 
 export async function toggleFollow(formData: FormData): Promise<void> {

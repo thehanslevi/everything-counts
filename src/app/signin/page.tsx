@@ -16,6 +16,12 @@ export default async function SignIn() {
 
       <section className="mt-14 border-[3px] border-foreground bg-paper p-6 sm:p-8">
         <AuthForm />
+        <p className="mt-6 border-t border-foreground/25 pt-3 font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-foreground/50">
+          Logs are public by default.{" "}
+          <a href="/privacy" className="text-accent hover:underline">
+            Privacy
+          </a>
+        </p>
       </section>
     </main>
   );
