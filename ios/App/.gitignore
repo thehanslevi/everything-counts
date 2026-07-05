@@ -1,0 +1,6 @@
+
+# Capacitor / iOS
+ios/App/App/public
+ios/App/DerivedData
+ios/App/output
+**/xcuserdata
