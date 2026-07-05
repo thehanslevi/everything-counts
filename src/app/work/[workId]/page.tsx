@@ -47,29 +47,27 @@ export default async function WorkPage({
       <SiteHeader />
 
       {/* The work's identity, shown once. */}
-      <section className="mt-12 border-[3px] border-black bg-white">
+      <section className="mt-12 border border-foreground bg-[#f7f1e3]">
         {work.image && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={work.image}
             alt=""
-            className="block h-56 w-full border-b-[3px] border-black object-cover"
+            className="block h-56 w-full border-b border-foreground object-cover"
           />
         )}
 
-        <div className="border-b-[3px] border-black">
-          <span className="inline-block bg-accent px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.2em] text-white">
+        <div className="p-6 sm:p-8">
+          <span className="font-structural text-xs font-bold uppercase tracking-[0.2em] text-accent">
             {work.form}
           </span>
-        </div>
 
-        <div className="p-5 sm:p-6">
-          <h1 className="font-structural text-3xl font-bold uppercase leading-[1.02] tracking-[-0.02em] text-black sm:text-4xl">
+          <h1 className="mt-4 font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-4xl">
             {work.title}
           </h1>
 
           {byline && (
-            <p className="mt-4 border-t-2 border-black pt-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-black">
+            <p className="mt-4 border-t border-foreground/25 pt-3 font-structural text-xs font-medium uppercase tracking-[0.1em] text-foreground/70">
               {byline}
             </p>
           )}
@@ -89,8 +87,8 @@ export default async function WorkPage({
 
       {/* The pool: who logged this piece. */}
       <section className="mt-16">
-        <div className="border-b-[3px] border-black pb-3">
-          <h2 className="font-structural text-2xl font-bold uppercase tracking-[-0.02em] text-black">
+        <div className="border-b border-foreground pb-3">
+          <h2 className="font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground">
             {you && followers > 0 ? (
               <>
                 You and <span className="text-accent">{followers}</span> {people}{" "}
@@ -126,21 +124,22 @@ function PooledLog({ log, user }: { log: Log; user?: User }) {
   const hasBody = Boolean(log.take) || log.rating != null;
 
   return (
-    <article className="border-[3px] border-black bg-white">
+    <article className="border border-foreground bg-[#f7f1e3]">
       <div
-        className={`flex items-baseline justify-between gap-3 px-4 py-2.5 ${
-          hasBody ? "border-b-[3px] border-black" : ""
+        className={`flex items-baseline justify-between gap-3 px-4 py-3 ${
+          hasBody ? "border-b border-foreground" : ""
         }`}
       >
-        <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-black">
+        <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground">
+          <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
           {user ? user.name : "Someone"}
           {user && (
-            <span className="ml-2 font-normal normal-case tracking-normal text-accent">
+            <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
               @{user.handle}
             </span>
           )}
         </span>
-        <time className="shrink-0 font-structural text-[0.65rem] font-bold uppercase tracking-[0.1em] text-neutral-500">
+        <time className="shrink-0 font-structural text-[0.65rem] font-medium uppercase tracking-[0.1em] text-foreground/50">
           {formatDate(log.createdAt)}
         </time>
       </div>
@@ -148,7 +147,7 @@ function PooledLog({ log, user }: { log: Log; user?: User }) {
       {hasBody && (
         <div className="px-4 py-4">
           {log.take && (
-            <p className="font-serif text-[13px] leading-[1.5] text-neutral-600">
+            <p className="font-serif text-[13px] leading-[1.55] text-foreground/70">
               {log.take}
             </p>
           )}

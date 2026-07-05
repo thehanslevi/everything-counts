@@ -15,9 +15,13 @@ const initialFields = {
   rating: "" as string, // "" means no rating
 };
 
-// Shared input styling: hard black borders, square corners, accent on focus.
+// Shared input styling: hairline ink border, square corners, vermilion on focus.
 const inputClass =
-  "w-full rounded-none border-2 border-black bg-white px-3 py-2 font-structural text-sm text-black outline-none placeholder:text-neutral-400 focus:border-accent";
+  "w-full rounded-none border border-foreground bg-[#fbf7ee] px-3 py-2 font-structural text-sm text-foreground outline-none placeholder:text-foreground/35 focus:border-accent";
+
+// Primary button: vermilion block, square, paper text.
+const buttonClass =
+  "rounded-none bg-accent px-5 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85 disabled:opacity-40";
 
 export function LogForm() {
   const [fields, setFields] = useState(initialFields);
@@ -101,7 +105,7 @@ export function LogForm() {
       <div className="flex flex-col gap-2">
         <label
           htmlFor="url"
-          className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-black"
+          className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground"
         >
           Link
         </label>
@@ -120,7 +124,7 @@ export function LogForm() {
             type="button"
             onClick={handleFetch}
             disabled={fetching}
-            className="whitespace-nowrap rounded-none border-2 border-black bg-black px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.1em] text-white transition-colors hover:bg-accent hover:border-accent disabled:opacity-40"
+            className={`whitespace-nowrap ${buttonClass}`}
           >
             {fetching ? "Fetching" : "Fetch details"}
           </button>
@@ -131,14 +135,14 @@ export function LogForm() {
           </p>
         )}
         {fetched && !fetchError && (
-          <p className="font-structural text-xs uppercase tracking-wide text-neutral-500">
+          <p className="font-structural text-xs uppercase tracking-wide text-foreground/50">
             Pulled what we could. Edit anything below before saving.
           </p>
         )}
       </div>
 
       {showDetails && (
-        <div className="flex flex-col gap-5 border-t-2 border-black pt-5">
+        <div className="flex flex-col gap-5 border-t border-foreground pt-5">
           {fields.image && (
             // Preview of the fetched lead image. Plain img: the source host is
             // arbitrary and not configured for next/image.
@@ -146,7 +150,7 @@ export function LogForm() {
             <img
               src={fields.image}
               alt=""
-              className="h-40 w-full border-2 border-black object-cover"
+              className="h-40 w-full border border-foreground object-cover"
             />
           )}
 
@@ -219,7 +223,7 @@ export function LogForm() {
               <option value="">No rating</option>
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
-                  {"★".repeat(n)}
+                  {"●".repeat(n)}
                 </option>
               ))}
             </select>
@@ -234,7 +238,7 @@ export function LogForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="self-start rounded-none border-2 border-black bg-black px-6 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-accent hover:border-accent disabled:opacity-40"
+            className={`self-start ${buttonClass} px-6`}
           >
             {isPending ? "Saving" : "Save to your log"}
           </button>
@@ -242,7 +246,8 @@ export function LogForm() {
       )}
 
       {saved && (
-        <p className="border-2 border-black bg-black px-4 py-3 font-structural text-xs font-bold uppercase tracking-[0.08em] text-white">
+        <p className="flex items-center gap-2 border border-foreground bg-[#f7f1e3] px-4 py-3 font-structural text-xs font-bold uppercase tracking-[0.08em] text-foreground">
+          <span className="inline-block size-2 shrink-0 rounded-full bg-accent" />
           Logged “{saved}.” It is in your record below.
         </p>
       )}
@@ -265,11 +270,11 @@ function Field({
     <div className="flex flex-col gap-2">
       <label
         htmlFor={htmlFor}
-        className="flex items-center gap-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-black"
+        className="flex items-center gap-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground"
       >
         {label}
         {hint && (
-          <span className="font-normal lowercase tracking-normal text-neutral-400">
+          <span className="font-normal lowercase tracking-normal text-foreground/40">
             {hint}
           </span>
         )}
