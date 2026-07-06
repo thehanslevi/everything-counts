@@ -3,11 +3,14 @@
 Everything below is ready to paste into App Store Connect. Build 2 is already
 uploaded.
 
-**Screenshots** are in `/screenshots`, five each at both accepted sizes with no
-alpha channel (App Store Connect rejects transparency):
-- `screenshots/iphone-6.9/` — 1320×2868 (upload these; it's the slot ASC leads with)
-- `screenshots/iphone-6.7/` — 1290×2796 (use if ASC shows a 6.7" slot instead)
+**Screenshots** are in `/screenshots`, five each at every accepted iPhone size,
+with no alpha channel (App Store Connect rejects transparency — and reports it
+as a misleading "wrong dimensions" error):
+- `screenshots/iphone-6.5/` — 1242×2688 (upload these if ASC asks for 6.5")
+- `screenshots/iphone-6.7/` — 1290×2796
+- `screenshots/iphone-6.9/` — 1320×2868
 
+Upload the set for whichever display size App Store Connect shows you.
 Regenerate anytime with `node scripts/make_screenshots.mjs`.
 
 ---

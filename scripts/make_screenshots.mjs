@@ -7,8 +7,9 @@ import { mkdirSync } from "node:fs";
 // "wrong dimensions" error). Panel 2 shows the share extension on purpose, to
 // answer guideline 4.2.
 const SIZES = [
-  { dir: "iphone-6.9", W: 1320, H: 2868 }, // iPhone 16 Pro Max — the slot ASC leads with
+  { dir: "iphone-6.9", W: 1320, H: 2868 }, // iPhone 16 Pro Max
   { dir: "iphone-6.7", W: 1290, H: 2796 }, // iPhone 15 Pro Max
+  { dir: "iphone-6.5", W: 1242, H: 2688 }, // iPhone 11 Pro Max — the slot ASC is asking for
 ];
 const YELLOW = "#f2c400";
 const INK = "#171106";
