@@ -46,26 +46,25 @@ uploaded. Screenshots are in `/screenshots` (1290×2796, all five).
 > trust read.
 
 **Description:**
-> Everything Counts is a reading log for everything that isn't a book. The
-> essay, the article, the report, the poem, the chapter, the longread — the
-> reading that registers nowhere else finally counts here.
+> Everything Counts is a reading log for everything that isn't a book — the
+> essay, the article, the report, the poem, the chapter, the longread. The
+> reading that counts nowhere else counts here.
 >
 > Log a piece by pasting a link, or straight from Safari's share sheet. Title,
 > author, and source are pulled in automatically. Pick a form, add a take if
 > you have one (most of the time you won't, and that's fine), and it's on your
 > record.
 >
-> Your record is an honest picture of your reading life. A form-neutral count
-> shows how much you've read without privileging any one kind of reading.
+> Your record is a full picture of your reading. A form-neutral count shows how
+> much you've read without privileging any one kind of reading.
 >
-> Follow people whose attention you trust and see what they're actually
-> reading — a plain reverse-chronological feed, no algorithm. When several
-> people log the same piece, it pools onto one page, so discovery happens
-> through the people you trust instead of a ranking.
+> Follow people whose attention you trust and see what they're reading — a
+> reverse-chronological feed, no algorithm. When several people log the same
+> piece, it pools onto one page, so discovery happens through the people you
+> trust instead of a ranking.
 >
 > No books (Goodreads has those). No read-later pile. No ads, no trackers, no
-> algorithm. Just an honest record of what you read, and a window into what the
-> people you trust are reading.
+> algorithm.
 >
 > Everything Counts is free.
 
@@ -129,7 +128,29 @@ build 2). No prompt should appear.
 
 Optional external TestFlight (public link for the linktr.ee) is a separate
 flow: TestFlight tab → create an External group → add build 2 → fill Test
-Information → submit for Beta App Review → enable Public Link.
+Information (below) → submit for Beta App Review → enable Public Link.
+
+### TestFlight "Test Information" fields
+
+**Beta App Description:**
+> Everything Counts is a reading log for everything that isn't a book —
+> essays, articles, reports, poems, chapters, longreads. Paste a link, or
+> share one from Safari, and it lands on your record. Pick a form, add a take
+> if you want, and it's logged. Follow people and their reading shows up in
+> your feed. When more than one person logs the same piece, it pools onto one
+> page.
+>
+> This is an early beta. Expect rough edges and changes between builds.
+
+**What to Test:**
+> - Log a few pieces, including from Safari's share sheet: Share → Log to
+>   Everything Counts.
+> - Move between the tabs and pull down to refresh.
+> - Follow someone and check your feed.
+> - Edit or delete one of your logs.
+> - Tell me anything that felt slow, confusing, or broken.
+
+**Feedback email:** (your email)
 
 ---
 

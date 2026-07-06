@@ -46,7 +46,7 @@ export async function SiteHeader({
       </div>
 
       <p className="mt-6 bg-foreground px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.2em] text-background">
-        An honest record of the reading that counts nowhere else.
+        A record of the reading that counts nowhere else.
       </p>
 
       {/* Search: a plain GET form to /search. */}

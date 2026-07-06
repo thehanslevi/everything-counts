@@ -38,8 +38,8 @@ export default async function Home({
             The chapter counts.
           </h2>
           <p className="mt-4 font-serif text-[15px] leading-[1.6] text-foreground/75">
-            Log the reading that registers nowhere else, watch your record add
-            up, and follow what the people you trust are actually reading.
+            Log the reading that counts nowhere else, watch your record add up,
+            and follow what the people you trust are reading.
           </p>
           <Link
             href={hasSession ? "/welcome" : "/signin"}
