@@ -12,6 +12,7 @@ import {
   updateLog,
 } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
+import { notify, notifyNewLog } from "@/lib/push";
 
 const SITE_URL = "https://everything-counts.vercel.app";
 const FOUNDER_HANDLE = "hrlevinson";
@@ -57,6 +58,8 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
     });
     revalidatePath("/");
     revalidatePath("/feed");
+    // Tell this user's followers a new piece landed. Best-effort.
+    await notifyNewLog(log);
     return { ok: true, log };
   } catch (err) {
     return {
@@ -225,13 +228,25 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
   if (followHandles.size > 0) {
     const { data: toFollow } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, handle")
       .in("handle", [...followHandles]);
     for (const target of toFollow ?? []) {
       if (target.id !== user.id) {
         await supabase
           .from("follows")
           .insert({ follower_id: user.id, followee_id: target.id });
+      }
+    }
+    // Reward the inviter: tell them their invite converted. Best-effort.
+    if (inviteRef && inviteRef !== handle) {
+      const inviter = (toFollow ?? []).find((p) => p.handle === inviteRef);
+      if (inviter && inviter.id !== user.id) {
+        await notify({
+          recipientUserId: inviter.id,
+          title: "Your invite was accepted",
+          body: `@${handle} joined from your invite.`,
+          url: `/u/${handle}`,
+        });
       }
     }
   }
@@ -359,8 +374,48 @@ export async function toggleFollow(formData: FormData): Promise<void> {
     await supabase
       .from("follows")
       .insert({ follower_id: user.id, followee_id: followeeId });
+    // Tell the followee they have a new follower. Best-effort.
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("handle")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (me) {
+      await notify({
+        recipientUserId: followeeId,
+        title: "New follower",
+        body: `@${me.handle} started following you.`,
+        url: `/u/${me.handle}`,
+      });
+    }
   }
 
   revalidatePath("/feed");
   revalidatePath("/people");
+}
+
+// --- Push notifications ------------------------------------------------------
+
+// Store (or refresh) an APNs device token for the signed-in user. Called from
+// the native shell after push registration (see PushRegistrar). Silent no-op
+// when signed out — the token is picked up on a later app open.
+export async function registerDeviceToken(
+  token: string,
+  platform = "ios",
+): Promise<void> {
+  if (!token) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("device_tokens").upsert(
+    {
+      token,
+      user_id: user.id,
+      platform,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "token" },
+  );
 }

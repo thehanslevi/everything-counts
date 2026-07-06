@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/BottomNav";
+import { PushRegistrar } from "@/components/PushRegistrar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <BottomNav />
+        <PushRegistrar />
       </body>
     </html>
   );
