@@ -62,4 +62,10 @@ body {
   textarea {
     font-size: 16px;
   }
+
+  /* Reserve room for the fixed bottom tab bar (mobile only) so it never
+     covers the last card. */
+  body {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
 }

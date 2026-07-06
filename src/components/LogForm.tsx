@@ -21,7 +21,7 @@ const inputClass =
 
 // Primary button: vermilion block, square, paper text.
 const buttonClass =
-  "rounded-none bg-accent px-5 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85 disabled:opacity-40";
+  "rounded-none bg-accent px-5 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-transform hover:opacity-85 active:scale-95 disabled:opacity-40";
 
 export function LogForm({ initialUrl }: { initialUrl?: string }) {
   const [fields, setFields] = useState({
