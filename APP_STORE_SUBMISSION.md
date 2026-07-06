@@ -1,7 +1,14 @@
 # App Store submission kit — Everything Counts
 
 Everything below is ready to paste into App Store Connect. Build 2 is already
-uploaded. Screenshots are in `/screenshots` (1290×2796, all five).
+uploaded.
+
+**Screenshots** are in `/screenshots`, five each at both accepted sizes with no
+alpha channel (App Store Connect rejects transparency):
+- `screenshots/iphone-6.9/` — 1320×2868 (upload these; it's the slot ASC leads with)
+- `screenshots/iphone-6.7/` — 1290×2796 (use if ASC shows a 6.7" slot instead)
+
+Regenerate anytime with `node scripts/make_screenshots.mjs`.
 
 ---
 
@@ -118,7 +125,7 @@ build 2). No prompt should appear.
 2. **App Information:** set category, Privacy Policy URL, Support URL.
 3. **Pricing:** Free.
 4. Create the **1.0 version** → paste Subtitle, Promotional text, Description,
-   Keywords; upload the five screenshots from `/screenshots`.
+   Keywords; upload the five screenshots from `screenshots/iphone-6.9/`.
 5. **App Privacy:** fill the data questionnaire above.
 6. **Age rating:** fill the questionnaire above.
 7. **Build:** attach build 2.
