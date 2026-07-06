@@ -9,9 +9,14 @@ as a misleading "wrong dimensions" error):
 - `screenshots/iphone-6.5/` — 1242×2688 (upload these if ASC asks for 6.5")
 - `screenshots/iphone-6.7/` — 1290×2796
 - `screenshots/iphone-6.9/` — 1320×2868
+- `screenshots/ipad-13/` — 2048×2732 (required because the app supports iPad)
 
 Upload the set for whichever display size App Store Connect shows you.
 Regenerate anytime with `node scripts/make_screenshots.mjs`.
+
+(If you'd rather not deal with iPad at all, the app could be made
+iPhone-only — but that needs a new build + upload, so uploading the iPad
+screenshots is the faster path to submitting now.)
 
 ---
 

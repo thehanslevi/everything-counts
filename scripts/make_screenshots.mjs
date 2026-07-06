@@ -126,6 +126,66 @@ function buildPanels(W, H) {
   };
 }
 
+// 13" iPad (2048x2732). Required when the app supports iPad. Wider, shorter
+// canvas, so the layout is tuned for it rather than reusing the tall phone one.
+function buildTabletPanels(W, H) {
+  const M = 150; // margin
+  const CW = W - M * 2; // content width
+  const panel = (caption, content) => {
+    const capSvg = caption
+      .split("\n")
+      .map(
+        (l, i) =>
+          `<text x="${M}" y="${420 + i * 180}" font-family="Arial" font-weight="900" font-size="150" letter-spacing="-4" fill="${INK}">${esc(l)}</text>`,
+      )
+      .join("");
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+      <rect width="${W}" height="${H}" fill="${YELLOW}"/>
+      <circle cx="${W - 250}" cy="260" r="150" fill="${RED}"/>
+      ${capSvg}
+      ${content}
+    </svg>`;
+  };
+
+  return {
+    "01-counts": panel("EVERYTHING\nYOU READ COUNTS", `
+      ${card(M, 1120, CW, 780)}
+      ${tag(M, 1120, "ESSAY", RED)}
+      <text x="${W - M - 40}" y="1170" text-anchor="end" font-family="Arial" font-weight="700" font-size="40" letter-spacing="3" fill="${INK}">JUN 16</text>
+      <text x="${M + 60}" y="1400" font-family="Arial" font-weight="800" font-size="110" fill="${INK}">THE WORK OF ART IN THE</text>
+      <text x="${M + 60}" y="1520" font-family="Arial" font-weight="800" font-size="110" fill="${INK}">AGE OF ATTENTION</text>
+      <line x1="${M + 60}" y1="1600" x2="${W - M - 60}" y2="1600" stroke="${INK}" stroke-width="4"/>
+      <text x="${M + 60}" y="1680" font-family="Arial" font-weight="700" font-size="44" letter-spacing="2" fill="${INK}">JIA TOLENTINO · THE NEW YORKER</text>
+      ${discs(M + 70, 1780, 4)}
+      <text x="${M}" y="2100" font-family="Georgia" font-size="66" fill="${INK}">The essay. The poem. The report. The chapter.</text>
+      <text x="${M}" y="2190" font-family="Georgia" font-size="66" fill="${INK}">All of it counts.</text>`),
+
+    "02-share": panel("LOG IT FROM\nANYWHERE", `
+      <rect x="${M}" y="1120" width="${CW}" height="760" fill="${PAPER}" stroke="${INK}" stroke-width="8"/>
+      <text x="${M + 60}" y="1250" font-family="Arial" font-weight="700" font-size="44" letter-spacing="3" fill="${INK}">SAFARI · SHARE SHEET</text>
+      <rect x="${M + 60}" y="1310" width="${CW - 120}" height="150" fill="${YELLOW}" stroke="${INK}" stroke-width="6"/>
+      <circle cx="${M + 150}" cy="1385" r="40" fill="${RED}"/>
+      <text x="${M + 240}" y="1402" font-family="Arial" font-weight="800" font-size="54" fill="${INK}">Log to Everything Counts</text>
+      <rect x="${M + 60}" y="1500" width="${CW - 120}" height="110" fill="none" stroke="${INK}" stroke-width="4" opacity="0.4"/>
+      <text x="${M + 90}" y="1570" font-family="Arial" font-weight="700" font-size="46" fill="${INK}" opacity="0.4">Copy</text>
+      <text x="${M}" y="2100" font-family="Georgia" font-size="66" fill="${INK}">Reading something? Share it straight into</text>
+      <text x="${M}" y="2190" font-family="Georgia" font-size="66" fill="${INK}">your record.</text>`),
+
+    "03-feed": panel("SEE WHAT YOUR\nPEOPLE READ", `
+      <rect x="${M}" y="1160" width="${CW}" height="110" fill="${INK}"/>
+      <circle cx="${M + 65}" cy="1215" r="20" fill="${RED}"/>
+      <text x="${M + 110}" y="1232" font-family="Arial" font-weight="800" font-size="50" letter-spacing="2" fill="${PAPER}">HANNAH L <tspan font-weight="400" fill="${RED}">@hrlevinson</tspan></text>
+      ${tag(M, 1270, "ARTICLE", BLUE)}
+      <rect x="${M}" y="1336" width="${CW}" height="420" fill="${PAPER}" stroke="${INK}" stroke-width="8"/>
+      <text x="${M + 60}" y="1470" font-family="Arial" font-weight="800" font-size="90" fill="${INK}">WHY THE KNICKS ARE THE</text>
+      <text x="${M + 60}" y="1570" font-family="Arial" font-weight="800" font-size="90" fill="${INK}">GREATEST TEAM</text>
+      <line x1="${M + 60}" y1="1650" x2="${W - M - 60}" y2="1650" stroke="${INK}" stroke-width="4"/>
+      <text x="${M + 60}" y="1720" font-family="Arial" font-weight="700" font-size="42" fill="${INK}">IAN O'CONNOR · THE ATHLETIC</text>
+      <text x="${M}" y="2050" font-family="Georgia" font-size="66" fill="${INK}">Not an algorithm. Just the people whose</text>
+      <text x="${M}" y="2140" font-family="Georgia" font-size="66" fill="${INK}">attention you trust.</text>`),
+  };
+}
+
 for (const { dir, W, H } of SIZES) {
   mkdirSync(`screenshots/${dir}`, { recursive: true });
   const panels = buildPanels(W, H);
@@ -138,5 +198,20 @@ for (const { dir, W, H } of SIZES) {
       .toFile(`screenshots/${dir}/${name}.png`);
   }
   console.log(`wrote screenshots/${dir}/ (5 files at ${W}x${H}, no alpha)`);
+}
+
+// 13" iPad set.
+{
+  const W = 2048,
+    H = 2732;
+  mkdirSync("screenshots/ipad-13", { recursive: true });
+  const panels = buildTabletPanels(W, H);
+  for (const [name, svg] of Object.entries(panels)) {
+    await sharp(Buffer.from(svg))
+      .flatten({ background: YELLOW })
+      .png()
+      .toFile(`screenshots/ipad-13/${name}.png`);
+  }
+  console.log(`wrote screenshots/ipad-13/ (3 files at ${W}x${H}, no alpha)`);
 }
 console.log("done");
