@@ -57,12 +57,13 @@ export async function getProfileByHandle(
 // Everyone on the network, newest first. Powers the People page.
 export async function getProfiles(): Promise<Profile[]> {
   const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
   const { data } = await supabase
     .from("profiles")
     .select("id, handle, name, role")
     .order("created_at", { ascending: false })
     .limit(200);
-  return (data ?? []).map(profileFromRow);
+  return (data ?? []).map(profileFromRow).filter((p) => !blocked.has(p.id));
 }
 
 // --- Search ------------------------------------------------------------------
@@ -78,6 +79,7 @@ export async function searchWorks(
   q: string,
 ): Promise<{ log: Log; loggerCount: number }[]> {
   const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
   const pattern = likePattern(q);
   const { data } = await supabase
     .from("logs")
@@ -89,6 +91,7 @@ export async function searchWorks(
 
   const byWork = new Map<string, { log: Log; loggers: Set<string> }>();
   for (const row of (data ?? []) as LogRow[]) {
+    if (blocked.has(row.user_id)) continue;
     const log = logFromRow(row);
     const entry = byWork.get(log.workId);
     if (entry) {
@@ -106,16 +109,103 @@ export async function searchWorks(
 // Search people by handle, name, or role.
 export async function searchProfiles(q: string): Promise<Profile[]> {
   const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
   const pattern = likePattern(q);
   const { data } = await supabase
     .from("profiles")
     .select("id, handle, name, role")
     .or(`handle.ilike.${pattern},name.ilike.${pattern},role.ilike.${pattern}`)
     .limit(20);
-  return (data ?? []).map(profileFromRow);
+  return (data ?? []).map(profileFromRow).filter((p) => !blocked.has(p.id));
+}
+
+// File a report against a log or a user.
+export async function reportContent(input: {
+  targetLogId?: string;
+  targetUserId?: string;
+  reason: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in to report.");
+  const { error } = await supabase.from("reports").insert({
+    reporter_id: user.id,
+    target_log_id: input.targetLogId ?? null,
+    target_user_id: input.targetUserId ?? null,
+    reason: input.reason.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Block / unblock a user.
+export async function setBlocked(
+  blockedId: string,
+  blocked: boolean,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || user.id === blockedId) return;
+  if (blocked) {
+    await supabase
+      .from("blocks")
+      .insert({ blocker_id: user.id, blocked_id: blockedId });
+    // Blocking implies unfollowing.
+    await supabase
+      .from("follows")
+      .delete()
+      .eq("follower_id", user.id)
+      .eq("followee_id", blockedId);
+  } else {
+    await supabase
+      .from("blocks")
+      .delete()
+      .eq("blocker_id", user.id)
+      .eq("blocked_id", blockedId);
+  }
 }
 
 // --- Follows -----------------------------------------------------------------
+
+// --- Blocking (UGC safety) ---------------------------------------------------
+
+// The set of users the given viewer has blocked. Empty when signed out.
+export async function getBlockedIds(viewerId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("blocks")
+    .select("blocked_id")
+    .eq("blocker_id", viewerId);
+  return new Set((data ?? []).map((b) => b.blocked_id));
+}
+
+export async function isBlocked(
+  blockerId: string,
+  blockedId: string,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("blocks")
+    .select("blocker_id")
+    .eq("blocker_id", blockerId)
+    .eq("blocked_id", blockedId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
+// The current viewer's blocked set, or empty when signed out. Used to filter
+// blocked people out of every public surface.
+async function viewerBlockedIds(): Promise<Set<string>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+  return getBlockedIds(user.id);
+}
 
 // Everyone the given user follows, as a set of ids.
 export async function getFolloweeIds(followerId: string): Promise<Set<string>> {
@@ -164,6 +254,7 @@ export async function getFeed(viewerId: string): Promise<FeedItem[]> {
     .select("followee_id")
     .eq("follower_id", viewerId);
 
+  const blocked = await getBlockedIds(viewerId);
   const userIds = [viewerId, ...(follows ?? []).map((f) => f.followee_id)];
 
   const { data } = await supabase
@@ -174,26 +265,26 @@ export async function getFeed(viewerId: string): Promise<FeedItem[]> {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  return ((data ?? []) as LogWithProfileRow[]).map((row) => ({
-    log: logFromRow(row),
-    user: profileFromRow(row.profiles),
-  }));
+  return ((data ?? []) as LogWithProfileRow[])
+    .filter((row) => !blocked.has(row.user_id))
+    .map((row) => ({ log: logFromRow(row), user: profileFromRow(row.profiles) }));
 }
 
 // Recent shared logs across the whole network, for the signed-out landing.
 export async function getRecentActivity(limit = 20): Promise<FeedItem[]> {
   const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
   const { data } = await supabase
     .from("logs")
     .select("*, profiles(id, handle, name, role)")
     .eq("shared", true)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(limit + blocked.size);
 
-  return ((data ?? []) as LogWithProfileRow[]).map((row) => ({
-    log: logFromRow(row),
-    user: profileFromRow(row.profiles),
-  }));
+  return ((data ?? []) as LogWithProfileRow[])
+    .filter((row) => !blocked.has(row.user_id))
+    .slice(0, limit)
+    .map((row) => ({ log: logFromRow(row), user: profileFromRow(row.profiles) }));
 }
 
 // Resolve a work: its pooled logs (newest first, with loggers) plus an
@@ -209,7 +300,10 @@ export async function getWork(
     .eq("shared", true)
     .order("created_at", { ascending: false });
 
-  const rows = (data ?? []) as LogWithProfileRow[];
+  const blocked = await viewerBlockedIds();
+  const rows = ((data ?? []) as LogWithProfileRow[]).filter(
+    (row) => !blocked.has(row.user_id),
+  );
   if (rows.length === 0) return undefined;
 
   const logs = rows.map(logFromRow);

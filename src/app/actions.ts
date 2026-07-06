@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { addLog, deleteLog, updateLog } from "@/lib/data/logs";
+import {
+  addLog,
+  deleteLog,
+  reportContent,
+  setBlocked,
+  updateLog,
+} from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
 
 const SITE_URL = "https://everything-counts.vercel.app";
@@ -299,6 +305,36 @@ export async function deleteAccount(formData: FormData): Promise<ActionResult> {
 
   await supabase.auth.signOut();
   redirect("/");
+}
+
+// --- UGC safety (report / block) ---------------------------------------------
+
+export async function toggleBlock(formData: FormData): Promise<void> {
+  const userId = (formData.get("userId") as string | null) ?? "";
+  const blocked = formData.get("blocked") === "true";
+  if (!userId) return;
+  await setBlocked(userId, !blocked);
+  revalidatePath("/feed");
+  revalidatePath("/people");
+  revalidatePath(`/u`);
+}
+
+export async function submitReport(formData: FormData): Promise<ActionResult> {
+  const targetUserId = (formData.get("targetUserId") as string | null) || undefined;
+  const targetLogId = (formData.get("targetLogId") as string | null) || undefined;
+  const reason = (formData.get("reason") as string | null) ?? "";
+  if (!targetUserId && !targetLogId) {
+    return { ok: false, error: "Nothing to report." };
+  }
+  try {
+    await reportContent({ targetUserId, targetLogId, reason });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not send report.",
+    };
+  }
+  return { ok: true };
 }
 
 // --- Follows -----------------------------------------------------------------

@@ -82,6 +82,19 @@ export default function Privacy() {
 
           <div>
             <h3 className="font-structural text-sm font-bold uppercase tracking-[0.12em] text-foreground">
+              Community conduct
+            </h3>
+            <p className="mt-2">
+              There is zero tolerance for objectionable content or abusive
+              behavior. You can report any log or person, and block anyone, from
+              their profile. Reports are reviewed and acted on, and accounts that
+              violate this are removed. By using Everything Counts you agree to
+              these terms.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-structural text-sm font-bold uppercase tracking-[0.12em] text-foreground">
               Contact
             </h3>
             <p className="mt-2">

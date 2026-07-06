@@ -4,11 +4,13 @@ import {
   getLogsByUser,
   getProfileByHandle,
   getSessionProfile,
+  isBlocked,
   isFollowing,
 } from "@/lib/data/logs";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { FollowButton } from "@/components/FollowButton";
 import { LogCard } from "@/components/LogCard";
+import { SafetyMenu } from "@/components/SafetyMenu";
 import { SiteHeader } from "@/components/SiteHeader";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
 
@@ -44,8 +46,13 @@ export default async function ProfilePage({
   ]);
 
   const isSelf = viewer?.id === person.id;
-  const following =
-    viewer && !isSelf ? await isFollowing(viewer.id, person.id) : false;
+  const [following, blocked] =
+    viewer && !isSelf
+      ? await Promise.all([
+          isFollowing(viewer.id, person.id),
+          isBlocked(viewer.id, person.id),
+        ])
+      : [false, false];
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
@@ -66,10 +73,26 @@ export default async function ProfilePage({
           )}
         </div>
         {viewer && !isSelf && (
-          <FollowButton followeeId={person.id} following={following} />
+          <div className="flex shrink-0 items-start gap-2">
+            <FollowButton followeeId={person.id} following={following} />
+            <SafetyMenu
+              targetUserId={person.id}
+              name={person.name.split(" ")[0]}
+              blocked={blocked}
+            />
+          </div>
         )}
       </section>
 
+      {blocked ? (
+        <section className="mt-14 border-[3px] border-foreground bg-paper p-6 sm:p-8">
+          <p className="font-structural text-sm font-bold uppercase tracking-wide text-foreground">
+            You blocked {person.name.split(" ")[0]}. Their logs are hidden from
+            you across the app. Use the ••• menu above to unblock.
+          </p>
+        </section>
+      ) : (
+        <>
       {/* The anchor metric: pieces + estimated time, form-neutral. Quantity is
           a feature (the spec's reversed decision) — an honest mirror, shown on
           every profile so comparison can motivate. */}
@@ -114,6 +137,8 @@ export default async function ProfilePage({
           </ol>
         )}
       </section>
+        </>
+      )}
 
       {isSelf && (
         <section className="mt-20 border-[3px] border-foreground bg-paper">
