@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSessionProfile } from "@/lib/data/logs";
 import { signOut } from "@/app/actions";
+import { Mark } from "@/components/Mark";
 
 // The masthead and section nav, shared across pages. Loud Japanese-poster
 // treatment (Yokoo mode). Session-aware: signed-out visitors get a sign-in
@@ -35,14 +36,8 @@ export async function SiteHeader({
           </h1>
         </Link>
 
-        {/* The rising sun, radiating. */}
-        <span
-          aria-hidden
-          className="relative mt-1 block size-16 shrink-0 sm:size-28"
-        >
-          <span className="absolute inset-0 rounded-full bg-[repeating-conic-gradient(var(--accent)_0deg_11deg,transparent_11deg_26deg)]" />
-          <span className="absolute inset-[26%] rounded-full bg-accent" />
-        </span>
+        {/* The rising-sun page seal. */}
+        <Mark className="mt-1 block size-20 shrink-0 sm:size-32" />
       </div>
 
       <p className="mt-6 bg-foreground px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.2em] text-background">

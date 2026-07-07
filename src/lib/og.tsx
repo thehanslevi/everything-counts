@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { markDataUri } from "@/lib/mark";
 
 // Shared poster renderer for OG share cards: taxi-yellow field, vermilion sun,
 // sumi type, black footer band. The link preview is the poster.
@@ -29,17 +30,13 @@ export function posterCard({
           position: "relative",
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            top: 48,
-            right: 48,
-            width: 170,
-            height: 170,
-            borderRadius: 9999,
-            background: "#e0202a",
-            display: "flex",
-          }}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={markDataUri()}
+          width={190}
+          height={190}
+          alt=""
+          style={{ position: "absolute", top: 40, right: 40 }}
         />
         <div
           style={{
