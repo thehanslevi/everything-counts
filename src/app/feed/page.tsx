@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getFeed, getSessionProfile } from "@/lib/data/logs";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -29,18 +30,13 @@ export default async function Feed() {
         </div>
 
         {items.length === 0 ? (
-          <div className="mt-8">
-            <p className="font-structural text-sm font-bold uppercase tracking-wide text-foreground">
-              Nothing here yet.
-            </p>
-            <p className="mt-2 font-serif text-[15px] leading-[1.6] text-foreground/75">
-              Your feed is the logging activity of the people you follow.{" "}
-              <Link href="/people" className="text-accent underline">
-                Find people
-              </Link>{" "}
-              or log your first piece — your own logs show here too.
-            </p>
-          </div>
+          <EmptyState title="Nothing here yet">
+            Your feed is the logging of the people you follow.{" "}
+            <Link href="/people" className="text-accent-3 underline">
+              Find people
+            </Link>{" "}
+            or log your own piece — it shows up here too.
+          </EmptyState>
         ) : (
           <ol className="mt-10 flex flex-col gap-12">
             {items.map(({ log, user }, i) => (

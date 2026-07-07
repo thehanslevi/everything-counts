@@ -7,6 +7,7 @@ import {
 import { LogForm } from "@/components/LogForm";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -103,9 +104,9 @@ export default async function Home({
         </div>
 
         {logs.length === 0 ? (
-          <p className="mt-8 font-structural text-sm font-bold uppercase tracking-wide text-foreground">
-            Nothing logged yet. Paste a link above — everything counts.
-          </p>
+          <EmptyState title="Nothing logged yet">
+            Paste a link above and save your first piece. Everything counts.
+          </EmptyState>
         ) : (
           <ol className="mt-10 flex flex-col gap-12">
             {logs.map((log, i) => (

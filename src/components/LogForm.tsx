@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createLog } from "@/app/actions";
 import { FORMS, type Form } from "@/lib/data/types";
+import { Mark } from "@/components/Mark";
 
 const initialFields = {
   url: "",
@@ -269,10 +270,12 @@ export function LogForm({ initialUrl }: { initialUrl?: string }) {
       )}
 
       {saved && (
-        <p className="flex items-center gap-2 border border-foreground bg-[#f7f1e3] px-4 py-3 font-structural text-xs font-bold uppercase tracking-[0.08em] text-foreground">
-          <span className="inline-block size-2 shrink-0 rounded-full bg-accent" />
-          Logged “{saved}.” It is in your record below.
-        </p>
+        <div className="flex items-center gap-3 border border-foreground bg-[#f7f1e3] px-4 py-3">
+          <Mark className="block size-9 shrink-0 origin-center [animation:stamp_0.45s_cubic-bezier(0.2,0.8,0.2,1)]" />
+          <span className="font-structural text-xs font-bold uppercase tracking-[0.08em] text-foreground">
+            Logged “{saved}.” It’s in your record below.
+          </span>
+        </div>
       )}
     </form>
   );

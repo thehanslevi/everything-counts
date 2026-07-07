@@ -2,6 +2,7 @@ import Link from "next/link";
 import { searchProfiles, searchWorks } from "@/lib/data/logs";
 import { formColor } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +43,9 @@ export default async function Search({
             source, or a person.
           </p>
         ) : works.length + people.length === 0 ? (
-          <p className="mt-8 font-structural text-sm font-bold uppercase tracking-wide text-foreground">
-            Nothing found. Log it first?
-          </p>
+          <EmptyState title="Nothing found">
+            No works or people match that yet. Be the first to log it.
+          </EmptyState>
         ) : (
           <>
             {people.length > 0 && (

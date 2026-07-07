@@ -70,7 +70,7 @@ export function LogCard({ log, logger }: { log: Log; logger?: Profile }) {
       className="block"
       aria-label={`Open the work page for ${log.title}`}
     >
-      <article className="border-[3px] border-foreground bg-paper transition-transform hover:-translate-y-0.5 active:scale-[0.985]">
+      <article className="border-[3px] border-foreground bg-paper transition-all hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--accent-3)] active:translate-y-0 active:shadow-none">
         {logger && (
           // Attribution: whose log this is, on a hard ink band. Feed only.
           <div className="flex items-baseline justify-between gap-3 border-b-[3px] border-foreground bg-foreground px-4 py-2.5">

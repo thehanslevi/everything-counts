@@ -54,6 +54,33 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Log-saved confirmation: the seal presses in like a rubber stamp. */
+@keyframes stamp {
+  0% {
+    transform: scale(1.55) rotate(-9deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(0.93) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes stamp {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 /* iOS force-zooms the page when a focused input's font-size is under 16px.
    Keep the desktop type scale but never trigger the zoom on touch screens. */
 @media (max-width: 640px) {
