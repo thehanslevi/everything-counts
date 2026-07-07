@@ -13,7 +13,7 @@ export default async function Welcome() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
-      <SiteHeader />
+      <SiteHeader variant="minimal" />
 
       <section className="mt-14 border-[3px] border-foreground bg-paper">
         <h2 className="border-b-[3px] border-foreground bg-accent-2 px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-white">

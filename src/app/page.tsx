@@ -50,6 +50,44 @@ export default async function Home({
           </Link>
         </section>
 
+        {/* How it works: three steps, one per clashing accent. */}
+        <section className="mt-12 grid gap-4 sm:grid-cols-3">
+          {[
+            {
+              n: "1",
+              color: "bg-accent",
+              title: "Paste a link",
+              body: "We pull the title, author, source, and image for you.",
+            },
+            {
+              n: "2",
+              color: "bg-accent-2",
+              title: "It becomes a card",
+              body: "A logged piece, added to your public record.",
+            },
+            {
+              n: "3",
+              color: "bg-accent-3",
+              title: "Follow readers",
+              body: "See what the people you trust are actually reading.",
+            },
+          ].map((s) => (
+            <div key={s.n} className="border-[3px] border-foreground bg-paper p-5">
+              <span
+                className={`inline-flex size-9 items-center justify-center ${s.color} font-structural text-lg font-black text-white`}
+              >
+                {s.n}
+              </span>
+              <h3 className="mt-4 font-structural text-base font-black uppercase leading-[1.05] tracking-[-0.01em] text-foreground">
+                {s.title}
+              </h3>
+              <p className="mt-2 font-serif text-[13.5px] leading-[1.5] text-foreground/70">
+                {s.body}
+              </p>
+            </div>
+          ))}
+        </section>
+
         {recent.length > 0 && (
           <section className="mt-16">
             <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">

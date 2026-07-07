@@ -18,8 +18,13 @@ function tabClass(active: boolean): string {
 
 export async function SiteHeader({
   active,
+  variant = "full",
 }: {
   active?: "record" | "feed" | "people";
+  // "minimal" drops the search box and section nav — for onboarding pages
+  // (sign in, welcome) where the form is the whole point and a full masthead
+  // would bury it below the fold.
+  variant?: "full" | "minimal";
 }) {
   const { profile, hasSession } = await getSessionProfile();
 
@@ -50,6 +55,8 @@ export async function SiteHeader({
         <span className="flex-1 bg-accent-3" />
       </div>
 
+      {variant === "full" && (
+        <>
       {/* Search: a plain GET form to /search. */}
       <form action="/search" className="mt-8 flex">
         <input
@@ -114,6 +121,8 @@ export async function SiteHeader({
           )}
         </span>
       </nav>
+        </>
+      )}
     </header>
   );
 }

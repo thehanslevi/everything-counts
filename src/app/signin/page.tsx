@@ -23,7 +23,7 @@ export default async function SignIn({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
-      <SiteHeader />
+      <SiteHeader variant="minimal" />
 
       {inviter && (
         <section className="mt-14 border-[3px] border-foreground bg-foreground px-5 py-4">
