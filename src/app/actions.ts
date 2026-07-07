@@ -10,6 +10,7 @@ import {
   reportContent,
   setBlocked,
   updateLog,
+  updateProfile as saveProfile,
 } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { notify, notifyNewLog } from "@/lib/push";
@@ -187,7 +188,6 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
     .trim()
     .toLowerCase();
   const name = (formData.get("name") as string | null)?.trim() ?? "";
-  const role = (formData.get("role") as string | null)?.trim() ?? "";
 
   if (!/^[a-z0-9_]{2,24}$/.test(handle)) {
     return {
@@ -207,7 +207,6 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
     id: user.id,
     handle,
     name,
-    role: role || null,
   });
   if (error) {
     if (error.code === "23505") {
@@ -253,6 +252,42 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
   cookieStore.delete(INVITE_COOKIE);
 
   redirect("/");
+}
+
+// Edit your own profile: name, bio, one link, and optionally the avatar. The
+// avatarUrl field is tri-state: omitted = leave as-is, "" = clear back to the
+// generated seal, a URL = set the photo (already uploaded to Storage client-
+// side). The handle is not editable — it is the identity.
+export async function updateProfile(formData: FormData): Promise<ActionResult> {
+  const name = (formData.get("name") as string | null)?.trim() ?? "";
+  const bio = (formData.get("bio") as string | null) ?? null;
+  const linkRaw = (formData.get("link") as string | null)?.trim() ?? "";
+  if (!name) return { ok: false, error: "A name is required." };
+
+  let link: string | null = null;
+  if (linkRaw) {
+    link = /^https?:\/\//i.test(linkRaw) ? linkRaw : `https://${linkRaw}`;
+  }
+
+  const hasAvatar = formData.has("avatarUrl");
+  const avatarUrl = hasAvatar
+    ? (formData.get("avatarUrl") as string | null) || null
+    : undefined;
+
+  try {
+    await saveProfile({ name, bio, link, ...(hasAvatar ? { avatarUrl } : {}) });
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof Error ? err.message : "Could not save your profile.",
+    };
+  }
+
+  revalidatePath("/");
+  const handle = (formData.get("handle") as string | null)?.trim().toLowerCase();
+  if (handle) revalidatePath(`/u/${handle}`);
+  return { ok: true };
 }
 
 // --- Password reset ------------------------------------------------------------

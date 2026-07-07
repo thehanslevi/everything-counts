@@ -12,6 +12,8 @@ import { FollowButton } from "@/components/FollowButton";
 import { LogCard } from "@/components/LogCard";
 import { SafetyMenu } from "@/components/SafetyMenu";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Avatar } from "@/components/Avatar";
+import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
 
 export const dynamic = "force-dynamic";
@@ -59,18 +61,31 @@ export default async function ProfilePage({
       <SiteHeader />
 
       <section className="mt-14 flex items-start justify-between gap-4 border-[3px] border-foreground bg-paper p-6 sm:p-7">
-        <div className="min-w-0">
-          <h2 className="font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground sm:text-3xl">
-            {person.name}
-          </h2>
-          <p className="mt-1 font-structural text-sm text-foreground/50">
-            @{person.handle}
-          </p>
-          {person.role && (
-            <p className="mt-2 font-structural text-xs font-medium uppercase tracking-[0.12em] text-foreground/70">
-              {person.role}
+        <div className="flex min-w-0 items-start gap-4">
+          <Avatar profile={person} className="size-16 sm:size-20" />
+          <div className="min-w-0">
+            <h2 className="font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground sm:text-3xl">
+              {person.name}
+            </h2>
+            <p className="mt-1 font-structural text-sm text-foreground/50">
+              @{person.handle}
             </p>
-          )}
+            {person.bio && (
+              <p className="mt-3 font-serif text-[14px] leading-[1.55] text-foreground/75">
+                {person.bio}
+              </p>
+            )}
+            {person.link && (
+              <a
+                href={person.link}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="mt-2 inline-block break-all font-structural text-xs font-bold uppercase tracking-[0.1em] text-accent-3 hover:underline"
+              >
+                {person.link.replace(/^https?:\/\/(www\.)?/i, "")}
+              </a>
+            )}
+          </div>
         </div>
         {viewer && !isSelf && (
           <div className="flex shrink-0 items-start gap-2">
@@ -83,6 +98,17 @@ export default async function ProfilePage({
           </div>
         )}
       </section>
+
+      {isSelf && (
+        <details className="mt-4 border-[3px] border-foreground bg-paper">
+          <summary className="cursor-pointer list-none px-5 py-3 font-structural text-xs font-bold uppercase tracking-[0.14em] text-foreground/70 transition-colors hover:text-foreground">
+            + Edit profile
+          </summary>
+          <div className="border-t border-foreground/25 p-5 sm:p-6">
+            <ProfileEditForm profile={person} />
+          </div>
+        </details>
+      )}
 
       {blocked ? (
         <section className="mt-14 border-[3px] border-foreground bg-paper p-6 sm:p-8">

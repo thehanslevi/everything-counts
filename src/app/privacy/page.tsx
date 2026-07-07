@@ -28,8 +28,9 @@ export default function Privacy() {
             </h3>
             <p className="mt-2">
               Your email address and password, used only to sign you in. Your
-              profile: a handle, a display name, and an optional one-line role.
-              Your logs: the URL, title, author, source, image, form, optional
+              profile: a handle, a display name, an optional bio and link, and
+              an optional avatar (or a generated seal if you upload none). Your
+              logs: the URL, title, author, source, image, form, optional
               take, optional rating, and timestamp of each piece you log. Who
               you follow.
             </p>

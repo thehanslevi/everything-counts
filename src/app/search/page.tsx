@@ -3,6 +3,7 @@ import { searchProfiles, searchWorks } from "@/lib/data/logs";
 import { formColor } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { Avatar } from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -58,19 +59,22 @@ export default async function Search({
                     <li key={p.id}>
                       <Link
                         href={`/u/${p.handle}`}
-                        className="flex items-baseline justify-between gap-4 border-[3px] border-foreground bg-paper px-4 py-3 transition-transform hover:-translate-y-0.5"
+                        className="flex items-center gap-3 border-[3px] border-foreground bg-paper px-4 py-3 transition-transform hover:-translate-y-0.5"
                       >
-                        <span className="min-w-0 truncate font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground">
-                          {p.name}
-                          <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
-                            @{p.handle}
+                        <Avatar profile={p} className="size-10" />
+                        <span className="min-w-0">
+                          <span className="block truncate font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground">
+                            {p.name}
+                            <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
+                              @{p.handle}
+                            </span>
                           </span>
+                          {p.bio && (
+                            <span className="block truncate font-serif text-[13px] normal-case text-foreground/60">
+                              {p.bio}
+                            </span>
+                          )}
                         </span>
-                        {p.role && (
-                          <span className="shrink-0 truncate font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-foreground/50">
-                            {p.role}
-                          </span>
-                        )}
                       </Link>
                     </li>
                   ))}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Form, Log, Profile } from "@/lib/data/types";
+import { Avatar } from "@/components/Avatar";
 
 // The log card: the single repeating unit across the product. Loud Japanese-
 // poster treatment — thick ink frames on a saturated field, a clashing color
@@ -73,15 +74,13 @@ export function LogCard({ log, logger }: { log: Log; logger?: Profile }) {
       <article className="border-[3px] border-foreground bg-paper transition-all hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--accent-3)] active:translate-y-0 active:shadow-none">
         {logger && (
           // Attribution: whose log this is, on a hard ink band. Feed only.
-          <div className="flex items-baseline justify-between gap-3 border-b-[3px] border-foreground bg-foreground px-4 py-2.5">
-            <span className="font-structural text-sm font-bold uppercase tracking-[0.04em] text-background">
+          <div className="flex items-center gap-3 border-b-[3px] border-foreground bg-foreground px-4 py-2.5">
+            <Avatar profile={logger} className="size-8" />
+            <span className="min-w-0 truncate font-structural text-sm font-bold uppercase tracking-[0.04em] text-background">
               {logger.name}
               <span className="ml-2 font-normal normal-case tracking-normal text-background/60">
                 @{logger.handle}
               </span>
-            </span>
-            <span className="shrink-0 text-right font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-background/60">
-              {logger.role}
             </span>
           </div>
         )}

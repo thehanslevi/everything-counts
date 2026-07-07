@@ -4,6 +4,7 @@ import { getProfiles, getSessionProfile } from "@/lib/data/logs";
 import { FollowButton } from "@/components/FollowButton";
 import { InviteLink } from "@/components/InviteLink";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Avatar } from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -60,18 +61,24 @@ export default async function People() {
                 key={p.id}
                 className="flex items-center justify-between gap-4 border-[3px] border-foreground bg-paper px-4 py-3"
               >
-                <Link href={`/u/${p.handle}`} className="min-w-0">
-                  <span className="block truncate font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground hover:underline">
-                    {p.name}
-                    <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
-                      @{p.handle}
+                <Link
+                  href={`/u/${p.handle}`}
+                  className="flex min-w-0 items-center gap-3"
+                >
+                  <Avatar profile={p} className="size-10" />
+                  <span className="min-w-0">
+                    <span className="block truncate font-structural text-sm font-bold uppercase tracking-[0.04em] text-foreground hover:underline">
+                      {p.name}
+                      <span className="ml-2 font-normal normal-case tracking-normal text-foreground/50">
+                        @{p.handle}
+                      </span>
                     </span>
+                    {p.bio && (
+                      <span className="block truncate font-serif text-[13px] normal-case text-foreground/60">
+                        {p.bio}
+                      </span>
+                    )}
                   </span>
-                  {p.role && (
-                    <span className="block truncate font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-foreground/50">
-                      {p.role}
-                    </span>
-                  )}
                 </Link>
                 {profile && (
                   <FollowButton

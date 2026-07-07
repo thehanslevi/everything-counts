@@ -35,7 +35,7 @@ export async function getSessionProfile(): Promise<{
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, handle, name, role")
+    .select("id, handle, name, bio, link, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -48,7 +48,7 @@ export async function getProfileByHandle(
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, handle, name, role")
+    .select("id, handle, name, bio, link, avatar_url")
     .eq("handle", handle.toLowerCase())
     .maybeSingle();
   return data ? profileFromRow(data) : undefined;
@@ -60,10 +60,36 @@ export async function getProfiles(): Promise<Profile[]> {
   const blocked = await viewerBlockedIds();
   const { data } = await supabase
     .from("profiles")
-    .select("id, handle, name, role")
+    .select("id, handle, name, bio, link, avatar_url")
     .order("created_at", { ascending: false })
     .limit(200);
   return (data ?? []).map(profileFromRow).filter((p) => !blocked.has(p.id));
+}
+
+// Update the signed-in user's editable profile fields. Handle stays immutable
+// (it is the identity). Passing avatarUrl clears or sets the photo; omitting it
+// leaves the current avatar untouched.
+export async function updateProfile(fields: {
+  name: string;
+  bio: string | null;
+  link: string | null;
+  avatarUrl?: string | null;
+}): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in first.");
+
+  const patch: Record<string, unknown> = {
+    name: fields.name.trim(),
+    bio: fields.bio?.trim() || null,
+    link: fields.link?.trim() || null,
+  };
+  if (fields.avatarUrl !== undefined) patch.avatar_url = fields.avatarUrl;
+
+  const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+  if (error) throw new Error(error.message);
 }
 
 // --- Search ------------------------------------------------------------------
@@ -113,8 +139,8 @@ export async function searchProfiles(q: string): Promise<Profile[]> {
   const pattern = likePattern(q);
   const { data } = await supabase
     .from("profiles")
-    .select("id, handle, name, role")
-    .or(`handle.ilike.${pattern},name.ilike.${pattern},role.ilike.${pattern}`)
+    .select("id, handle, name, bio, link, avatar_url")
+    .or(`handle.ilike.${pattern},name.ilike.${pattern},bio.ilike.${pattern}`)
     .limit(20);
   return (data ?? []).map(profileFromRow).filter((p) => !blocked.has(p.id));
 }
@@ -259,7 +285,7 @@ export async function getFeed(viewerId: string): Promise<FeedItem[]> {
 
   const { data } = await supabase
     .from("logs")
-    .select("*, profiles(id, handle, name, role)")
+    .select("*, profiles(id, handle, name, bio, link, avatar_url)")
     .in("user_id", userIds)
     .eq("shared", true)
     .order("created_at", { ascending: false })
@@ -276,7 +302,7 @@ export async function getRecentActivity(limit = 20): Promise<FeedItem[]> {
   const blocked = await viewerBlockedIds();
   const { data } = await supabase
     .from("logs")
-    .select("*, profiles(id, handle, name, role)")
+    .select("*, profiles(id, handle, name, bio, link, avatar_url)")
     .eq("shared", true)
     .order("created_at", { ascending: false })
     .limit(limit + blocked.size);
@@ -295,7 +321,7 @@ export async function getWork(
   const supabase = await createClient();
   const { data } = await supabase
     .from("logs")
-    .select("*, profiles(id, handle, name, role)")
+    .select("*, profiles(id, handle, name, bio, link, avatar_url)")
     .eq("work_id", workId)
     .eq("shared", true)
     .order("created_at", { ascending: false });

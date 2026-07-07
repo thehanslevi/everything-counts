@@ -9,7 +9,8 @@ const inputClass =
 const labelClass =
   "flex items-center gap-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground";
 
-// Onboarding: claim a handle, set a name and optional one-line role.
+// Onboarding: claim a handle and name. Bio, link, and avatar come later, on
+// your own profile — onboarding stays a two-field job.
 export function WelcomeForm() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -57,23 +58,6 @@ export function WelcomeForm() {
           maxLength={24}
           pattern="[a-zA-Z0-9_]+"
           placeholder="yourname"
-          className={inputClass}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="role" className={labelClass}>
-          One-line role
-          <span className="font-normal lowercase tracking-normal text-foreground/40">
-            optional
-          </span>
-        </label>
-        <input
-          id="role"
-          name="role"
-          type="text"
-          maxLength={80}
-          placeholder="e.g. Policy researcher, digital governance"
           className={inputClass}
         />
       </div>

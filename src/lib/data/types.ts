@@ -25,7 +25,9 @@ export interface Profile {
   id: string;
   handle: string;
   name: string;
-  role: string | null; // one-line identity
+  bio: string | null; // a short self-description
+  link: string | null; // one outbound link
+  avatarUrl: string | null; // uploaded photo; null falls back to a generated seal
 }
 
 // A log is one person recording one piece they have read. Public by default:
@@ -103,7 +105,9 @@ export interface ProfileRow {
   id: string;
   handle: string;
   name: string;
-  role: string | null;
+  bio: string | null;
+  link: string | null;
+  avatar_url: string | null;
 }
 
 export function logFromRow(row: LogRow): Log {
@@ -125,5 +129,12 @@ export function logFromRow(row: LogRow): Log {
 }
 
 export function profileFromRow(row: ProfileRow): Profile {
-  return { id: row.id, handle: row.handle, name: row.name, role: row.role };
+  return {
+    id: row.id,
+    handle: row.handle,
+    name: row.name,
+    bio: row.bio,
+    link: row.link,
+    avatarUrl: row.avatar_url,
+  };
 }
