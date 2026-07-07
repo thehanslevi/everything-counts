@@ -6,7 +6,7 @@
 
 Built by Hannah Levinson • [hrlevinson.com](https://hrlevinson.com)
 
-A place to log reading that doesn't count anywhere else: articles, blogs, chapters, newsletters, papers, poems, reports, and more. A reminder that the number of books read or on a DNC shelf don't adequately represent a reading life. A way to express yourself as a reader that goes beyond Goodreads.
+A place to log reading that doesn't count anywhere else: articles, blogs, chapters, newsletters, papers, poems, reports, and more. A reminder that the number of books on a "DNC" or "read" shelf don't adequately represent a life in letters. A way to express yourself as a reader that goes beyond Goodreads.
 
 **Live:** https://everything-counts.vercel.app/ · iOS app in App Store review (a native shell around the same site that logs straight from the share sheet).
 
