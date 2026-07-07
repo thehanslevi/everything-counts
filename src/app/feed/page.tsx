@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getFeed, getSessionProfile } from "@/lib/data/logs";
+import {
+  getFeed,
+  getRecentActivity,
+  getSessionProfile,
+} from "@/lib/data/logs";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -13,7 +17,12 @@ export default async function Feed() {
   const { profile, hasSession } = await getSessionProfile();
   if (!profile) redirect(hasSession ? "/welcome" : "/signin");
 
+  // Your feed is you + the people you follow. When that's empty (new here, or
+  // following no one yet), fall back to recent activity across the network so
+  // the feed is never a dead screen — discovery on first load.
   const items = await getFeed(profile.id);
+  const showingNetwork = items.length === 0;
+  const display = showingNetwork ? await getRecentActivity() : items;
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
@@ -24,12 +33,14 @@ export default async function Feed() {
           <h2 className="font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
             Feed
           </h2>
-          <span className="bg-accent px-2 py-1 font-structural text-xs font-bold uppercase tracking-[0.18em] text-white">
-            People you follow
+          <span
+            className={`${showingNetwork ? "bg-accent-3" : "bg-accent"} px-2 py-1 font-structural text-xs font-bold uppercase tracking-[0.18em] text-white`}
+          >
+            {showingNetwork ? "Across the network" : "People you follow"}
           </span>
         </div>
 
-        {items.length === 0 ? (
+        {display.length === 0 ? (
           <EmptyState title="Nothing here yet">
             Your feed is the logging of the people you follow.{" "}
             <Link href="/people" className="text-accent-3 underline">
@@ -38,16 +49,30 @@ export default async function Feed() {
             or log your own piece — it shows up here too.
           </EmptyState>
         ) : (
-          <ol className="mt-10 flex flex-col gap-12">
-            {items.map(({ log, user }, i) => (
-              <li
-                key={log.id}
-                className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
-              >
-                <LogCard log={log} logger={user} />
-              </li>
-            ))}
-          </ol>
+          <>
+            {showingNetwork && (
+              <p className="mt-6 border-l-4 border-accent-3 bg-paper px-4 py-3 font-serif text-[14px] leading-[1.55] text-foreground/75">
+                Nothing from people you follow yet — here&apos;s what the wider
+                network is reading.{" "}
+                <Link
+                  href="/people"
+                  className="font-structural text-xs font-bold uppercase tracking-[0.08em] text-accent-3 underline"
+                >
+                  Find people to follow
+                </Link>
+              </p>
+            )}
+            <ol className="mt-10 flex flex-col gap-12">
+              {display.map(({ log, user }, i) => (
+                <li
+                  key={log.id}
+                  className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
+                >
+                  <LogCard log={log} logger={user} />
+                </li>
+              ))}
+            </ol>
+          </>
         )}
       </section>
     </main>

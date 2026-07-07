@@ -8,6 +8,7 @@ import { LogForm } from "@/components/LogForm";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { BulkImport } from "@/components/BulkImport";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +129,16 @@ export default async function Home({
         <div className="p-5 sm:p-6">
           <LogForm initialUrl={logurl} />
         </div>
+        {/* Backfill: log a whole list at once. Tucked away so it never
+            competes with the primary single-log flow. */}
+        <details className="border-t-[3px] border-foreground">
+          <summary className="cursor-pointer list-none px-5 py-3 font-structural text-xs font-bold uppercase tracking-[0.14em] text-foreground/70 transition-colors hover:text-foreground">
+            + Backfill a reading list
+          </summary>
+          <div className="border-t border-foreground/25 p-5 sm:p-6">
+            <BulkImport />
+          </div>
+        </details>
       </section>
 
       {/* The record */}
