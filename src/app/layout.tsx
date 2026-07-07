@@ -32,7 +32,7 @@ const zenKaku = Zen_Kaku_Gothic_New({
 
 export const metadata: Metadata = {
   title: "Everything Counts",
-  description: "A record of the reading that counts nowhere else.",
+  description: "For reading that goes beyond books.",
 };
 
 // viewport-fit=cover lets the poster field run edge-to-edge in the iOS shell;

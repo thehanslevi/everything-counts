@@ -7,7 +7,7 @@ export const alt = "Everything Counts";
 // Site-wide share card.
 export default function Image() {
   return posterCard({
-    kicker: "The reading that counts nowhere else",
+    kicker: "For reading that goes beyond books",
     title: "Everything Counts",
     footer: "everything-counts.vercel.app",
   });

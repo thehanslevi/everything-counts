@@ -46,7 +46,7 @@ export async function SiteHeader({
       </div>
 
       <p className="mt-6 bg-foreground px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.2em] text-background">
-        A record of the reading that counts nowhere else.
+        For reading that goes beyond books.
       </p>
       {/* The Yokoo clash as a base rule: vermilion, magenta, blue. */}
       <div aria-hidden className="flex h-2">
