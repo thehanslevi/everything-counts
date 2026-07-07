@@ -30,6 +30,17 @@ export interface Profile {
   avatarUrl: string | null; // uploaded photo; null falls back to a generated seal
 }
 
+// An in-app notification, resolved for display.
+export interface AppNotification {
+  id: string;
+  type: "follow" | "log" | string;
+  actor: Profile | null;
+  logTitle: string | null;
+  workId: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
 // A log is one person recording one piece they have read. Public by default:
 // logging a piece is the act of sharing it. The `shared` flag exists for a
 // future private opt-out.

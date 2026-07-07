@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  getFollowCounts,
   getLogsByUser,
   getProfileByHandle,
   getSessionProfile,
@@ -42,9 +43,10 @@ export default async function ProfilePage({
   const person = await getProfileByHandle(handle);
   if (!person) notFound();
 
-  const [{ profile: viewer }, logs] = await Promise.all([
+  const [{ profile: viewer }, logs, counts] = await Promise.all([
     getSessionProfile(),
     getLogsByUser(person.id),
+    getFollowCounts(person.id),
   ]);
 
   const isSelf = viewer?.id === person.id;
@@ -85,6 +87,20 @@ export default async function ProfilePage({
                 {person.link.replace(/^https?:\/\/(www\.)?/i, "")}
               </a>
             )}
+            <div className="mt-3 flex gap-4 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground">
+              <Link
+                href={`/u/${person.handle}/followers`}
+                className="hover:underline"
+              >
+                <span className="text-accent">{counts.followers}</span> Followers
+              </Link>
+              <Link
+                href={`/u/${person.handle}/following`}
+                className="hover:underline"
+              >
+                <span className="text-accent">{counts.following}</span> Following
+              </Link>
+            </div>
           </div>
         </div>
         {viewer && !isSelf && (

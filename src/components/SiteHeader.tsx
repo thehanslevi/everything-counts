@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { getSessionProfile } from "@/lib/data/logs";
-import { signOut } from "@/app/actions";
+import { getSessionProfile, getUnreadNotificationCount } from "@/lib/data/logs";
 import { Mark } from "@/components/Mark";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 // The masthead and section nav, shared across pages. Loud Japanese-poster
 // treatment (Yokoo mode). Session-aware: signed-out visitors get a sign-in
@@ -27,6 +27,7 @@ export async function SiteHeader({
   variant?: "full" | "minimal";
 }) {
   const { profile, hasSession } = await getSessionProfile();
+  const unread = profile ? await getUnreadNotificationCount(profile.id) : 0;
 
   return (
     <header>
@@ -90,19 +91,33 @@ export async function SiteHeader({
           {profile ? (
             <>
               <Link
-                href={`/u/${profile.handle}`}
-                className="font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground hover:underline"
+                href="/notifications"
+                aria-label={
+                  unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
+                }
+                className="relative flex items-center text-foreground transition-opacity hover:opacity-70"
               >
-                @{profile.handle}
-              </Link>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/50 hover:text-foreground"
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
                 >
-                  Sign out
-                </button>
-              </form>
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                {unread > 0 && (
+                  <span className="absolute -right-2 -top-2 flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 font-structural text-[0.6rem] font-bold leading-[18px] text-white">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
+              </Link>
+              <ProfileMenu profile={profile} />
             </>
           ) : hasSession ? (
             <Link

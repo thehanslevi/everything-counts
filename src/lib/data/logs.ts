@@ -3,6 +3,7 @@ import { workIdFor } from "./url";
 import {
   logFromRow,
   profileFromRow,
+  type AppNotification,
   type FeedItem,
   type Log,
   type LogRow,
@@ -255,6 +256,124 @@ export async function isFollowing(
     .eq("followee_id", followeeId)
     .maybeSingle();
   return Boolean(data);
+}
+
+// Follower / following counts for a profile.
+export async function getFollowCounts(
+  userId: string,
+): Promise<{ followers: number; following: number }> {
+  const supabase = await createClient();
+  const [followers, following] = await Promise.all([
+    supabase
+      .from("follows")
+      .select("follower_id", { count: "exact", head: true })
+      .eq("followee_id", userId),
+    supabase
+      .from("follows")
+      .select("followee_id", { count: "exact", head: true })
+      .eq("follower_id", userId),
+  ]);
+  return { followers: followers.count ?? 0, following: following.count ?? 0 };
+}
+
+// Resolve a set of user ids to profiles, minus anyone the viewer has blocked.
+async function profilesByIds(ids: string[]): Promise<Profile[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, handle, name, bio, link, avatar_url")
+    .in("id", ids);
+  return (data ?? []).map(profileFromRow).filter((p) => !blocked.has(p.id));
+}
+
+// The people who follow this user.
+export async function getFollowers(userId: string): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("follows")
+    .select("follower_id")
+    .eq("followee_id", userId);
+  return profilesByIds((data ?? []).map((f) => f.follower_id));
+}
+
+// The people this user follows.
+export async function getFollowing(userId: string): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("follows")
+    .select("followee_id")
+    .eq("follower_id", userId);
+  return profilesByIds((data ?? []).map((f) => f.followee_id));
+}
+
+// --- Notifications -----------------------------------------------------------
+
+type NotifRaw = {
+  id: string;
+  type: string;
+  work_id: string | null;
+  read: boolean;
+  created_at: string;
+  actor: ProfileRow | null;
+  log: { title: string; work_id: string } | null;
+};
+
+// Count of unread notifications, for the header bell badge.
+export async function getUnreadNotificationCount(
+  viewerId: string,
+): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", viewerId)
+    .eq("read", false);
+  return count ?? 0;
+}
+
+// The viewer's notifications, newest first, with the actor and (for log
+// notifications) the piece resolved. Blocked actors are filtered out.
+export async function getNotifications(
+  viewerId: string,
+): Promise<AppNotification[]> {
+  const supabase = await createClient();
+  const blocked = await getBlockedIds(viewerId);
+  const { data } = await supabase
+    .from("notifications")
+    .select(
+      "id, type, work_id, read, created_at, actor:profiles!actor_id(id, handle, name, bio, link, avatar_url), log:logs(title, work_id)",
+    )
+    .eq("user_id", viewerId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return ((data ?? []) as unknown as NotifRaw[])
+    .filter((n) => !n.actor || !blocked.has(n.actor.id))
+    .map((n) => ({
+      id: n.id,
+      type: n.type,
+      actor: n.actor ? profileFromRow(n.actor) : null,
+      logTitle: n.log?.title ?? null,
+      workId: n.work_id ?? n.log?.work_id ?? null,
+      read: n.read,
+      createdAt: n.created_at,
+    }));
+}
+
+// Mark all of the signed-in user's notifications read.
+export async function markNotificationsRead(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("user_id", user.id)
+    .eq("read", false);
 }
 
 // --- Logs --------------------------------------------------------------------
