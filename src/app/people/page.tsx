@@ -6,6 +6,8 @@ import { InviteLink } from "@/components/InviteLink";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
 
+export const metadata = { title: "People — Everything Counts" };
+
 export const dynamic = "force-dynamic";
 
 // People: everyone on the network, with follow buttons for signed-in viewers.

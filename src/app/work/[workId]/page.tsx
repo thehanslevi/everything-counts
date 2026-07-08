@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getFolloweeIds, getSessionProfile, getWork } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Stars, formColor } from "@/components/LogCard";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 import type { Log, Profile } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
@@ -114,16 +115,19 @@ export default async function WorkPage({
             </p>
           )}
 
-          {work.url && (
-            <a
-              href={work.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-block font-structural text-xs font-bold uppercase tracking-[0.12em] text-accent hover:underline"
-            >
-              Open the piece ↗
-            </a>
-          )}
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            {work.url && (
+              <a
+                href={work.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-accent hover:underline"
+              >
+                Open the piece ↗
+              </a>
+            )}
+            <CopyLinkButton />
+          </div>
         </div>
       </section>
 

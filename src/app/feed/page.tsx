@@ -9,6 +9,8 @@ import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 
+export const metadata = { title: "Your feed — Everything Counts" };
+
 export const dynamic = "force-dynamic";
 
 // Feed: what the people you follow (and you) have logged, newest first. Not

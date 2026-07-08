@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import { BottomNav } from "@/components/BottomNav";
 import { PushRegistrar } from "@/components/PushRegistrar";
 
@@ -57,6 +58,7 @@ export default function RootLayout({
         {children}
         <BottomNav />
         <PushRegistrar />
+        <Analytics />
       </body>
     </html>
   );

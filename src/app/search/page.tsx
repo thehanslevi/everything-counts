@@ -5,6 +5,8 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
 
+export const metadata = { title: "Search — Everything Counts" };
+
 export const dynamic = "force-dynamic";
 
 // Search: works (grouped by piece) and people, matched on title, author,
