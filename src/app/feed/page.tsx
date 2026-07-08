@@ -41,11 +41,11 @@ export default async function Feed() {
         </div>
 
         {display.length === 0 ? (
-          <EmptyState title="Nothing here yet">
+          <EmptyState title="No feed yet">
+            Follow a few people to start one.{" "}
             <Link href="/people" className="text-accent-3 underline">
               Find people
-            </Link>{" "}
-            to follow, and their reading lands here.
+            </Link>
           </EmptyState>
         ) : (
           <>

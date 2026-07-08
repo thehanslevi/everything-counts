@@ -4,7 +4,7 @@ import { Avatar } from "@/components/Avatar";
 
 // The log card: the single repeating unit across the product. Loud Japanese-
 // poster treatment — thick ink frames on a saturated field, a clashing color
-// banner per form, and a calm paper body so the reading itself stays quiet.
+// banner per form, and a calm paper body so the reading itself stays the focus.
 // Most logs have no take; the take, when present, is a small secondary note.
 // A takeless card is the norm and is complete on its own.
 //

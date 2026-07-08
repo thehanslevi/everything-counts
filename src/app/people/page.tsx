@@ -51,8 +51,7 @@ export default async function People() {
 
         {others.length === 0 ? (
           <p className="mt-8 font-serif text-[15px] leading-[1.6] text-foreground/75">
-            No one else here yet. Send someone the link — the feed gets good
-            when the right people are in it.
+            No one else here yet. Send someone the link.
           </p>
         ) : (
           <ol className="mt-8 flex flex-col gap-4">

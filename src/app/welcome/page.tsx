@@ -17,7 +17,7 @@ export default async function Welcome() {
 
       <section className="mt-14 border-[3px] border-foreground bg-paper">
         <h2 className="border-b-[3px] border-foreground bg-accent-2 px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-white">
-          Claim your handle
+          Create your profile
         </h2>
         <div className="p-5 sm:p-6">
           <WelcomeForm />

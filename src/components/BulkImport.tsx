@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createLog } from "@/app/actions";
 import { FORMS, type Form } from "@/lib/data/types";
 
-// Backfill tool: paste a list of links (one per line) and log them all in one
+// Import tool: paste a list of links (one per line) and log them all in one
 // pass. For each URL it pulls metadata the same way the single-log form does,
 // then saves. Sequential and best-effort — a page that can't be read is marked
 // and skipped, never blocking the rest. Meant for seeding a record fast.

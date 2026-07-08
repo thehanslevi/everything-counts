@@ -48,7 +48,7 @@ export default async function NotificationsPage() {
         </div>
 
         {items.length === 0 ? (
-          <EmptyState title="Quiet so far" />
+          <EmptyState title="Nothing yet" />
         ) : (
           <ol className="mt-8 flex flex-col gap-3">
             {items.map((n) => (
