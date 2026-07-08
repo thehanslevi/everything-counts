@@ -160,7 +160,7 @@ export function LogForm({ initialUrl }: { initialUrl?: string }) {
         )}
         {fetched && !fetchError && (
           <p className="font-structural text-xs uppercase tracking-wide text-foreground/50">
-            Pulled what we could. Edit anything below before saving.
+            Pulled what we could. Edit before saving.
           </p>
         )}
       </div>
@@ -232,7 +232,7 @@ export function LogForm({ initialUrl }: { initialUrl?: string }) {
               rows={3}
               value={fields.take}
               onChange={(e) => update("take", e.target.value)}
-              placeholder="What did this change, or why did it matter?"
+              placeholder="A line, if you have one."
               className={`${inputClass} resize-none font-serif normal-case`}
             />
           </Field>
@@ -273,7 +273,7 @@ export function LogForm({ initialUrl }: { initialUrl?: string }) {
         <div className="flex items-center gap-3 border border-foreground bg-[#f7f1e3] px-4 py-3">
           <Mark className="block size-9 shrink-0 origin-center [animation:stamp_0.45s_cubic-bezier(0.2,0.8,0.2,1)]" />
           <span className="font-structural text-xs font-bold uppercase tracking-[0.08em] text-foreground">
-            Logged “{saved}.” It’s in your record below.
+            Logged “{saved}.”
           </span>
         </div>
       )}

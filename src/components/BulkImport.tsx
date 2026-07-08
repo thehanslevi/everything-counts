@@ -97,8 +97,7 @@ export function BulkImport() {
   return (
     <div className="flex flex-col gap-4">
       <p className="font-serif text-[14px] leading-[1.55] text-foreground/70">
-        Paste links, one per line. We&apos;ll pull the details and log each one —
-        a fast way to backfill what you&apos;ve already read.
+        One link per line. We&apos;ll pull the details for each.
       </p>
       <textarea
         rows={5}
@@ -138,8 +137,7 @@ export function BulkImport() {
       )}
       {!running && doneCount > 0 && (
         <p className="font-structural text-xs font-bold uppercase tracking-wide text-foreground">
-          Logged {doneCount} {doneCount === 1 ? "piece" : "pieces"}. They&apos;re
-          in your record below.
+          Logged {doneCount} {doneCount === 1 ? "piece" : "pieces"}.
         </p>
       )}
     </div>

@@ -48,9 +48,7 @@ export default async function NotificationsPage() {
         </div>
 
         {items.length === 0 ? (
-          <EmptyState title="Nothing yet">
-            When someone follows you or logs a piece, it shows up here.
-          </EmptyState>
+          <EmptyState title="Quiet so far" />
         ) : (
           <ol className="mt-8 flex flex-col gap-3">
             {items.map((n) => (

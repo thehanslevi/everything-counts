@@ -45,7 +45,7 @@ export default async function Search({
           </p>
         ) : works.length + people.length === 0 ? (
           <EmptyState title="Nothing found">
-            No works or people match that yet. Be the first to log it.
+            Nothing matches that yet.
           </EmptyState>
         ) : (
           <>

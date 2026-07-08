@@ -40,8 +40,8 @@ export default async function Home({
             The chapter counts.
           </h2>
           <p className="mt-4 font-serif text-[15px] leading-[1.6] text-foreground/75">
-            Log the reading that goes beyond books, watch your record add up,
-            and follow what the people you trust are reading.
+            Keep a record of what you read, and see what the people you trust
+            are reading.
           </p>
           <Link
             href={hasSession ? "/welcome" : "/signin"}
@@ -49,44 +49,6 @@ export default async function Home({
           >
             {hasSession ? "Finish setup" : "Start your record"}
           </Link>
-        </section>
-
-        {/* How it works: three steps, one per clashing accent. */}
-        <section className="mt-12 grid gap-4 sm:grid-cols-3">
-          {[
-            {
-              n: "1",
-              color: "bg-accent",
-              title: "Paste a link",
-              body: "We pull the title, author, source, and image for you.",
-            },
-            {
-              n: "2",
-              color: "bg-accent-2",
-              title: "It becomes a card",
-              body: "A logged piece, added to your public record.",
-            },
-            {
-              n: "3",
-              color: "bg-accent-3",
-              title: "Follow readers",
-              body: "See what the people you trust are actually reading.",
-            },
-          ].map((s) => (
-            <div key={s.n} className="border-[3px] border-foreground bg-paper p-5">
-              <span
-                className={`inline-flex size-9 items-center justify-center ${s.color} font-structural text-lg font-black text-white`}
-              >
-                {s.n}
-              </span>
-              <h3 className="mt-4 font-structural text-base font-black uppercase leading-[1.05] tracking-[-0.01em] text-foreground">
-                {s.title}
-              </h3>
-              <p className="mt-2 font-serif text-[13.5px] leading-[1.5] text-foreground/70">
-                {s.body}
-              </p>
-            </div>
-          ))}
         </section>
 
         {recent.length > 0 && (
@@ -154,7 +116,7 @@ export default async function Home({
 
         {logs.length === 0 ? (
           <EmptyState title="Nothing logged yet">
-            Paste a link above and save your first piece. Everything counts.
+            Paste a link above to log your first piece.
           </EmptyState>
         ) : (
           <ol className="mt-10 flex flex-col gap-12">

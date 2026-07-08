@@ -42,18 +42,16 @@ export default async function Feed() {
 
         {display.length === 0 ? (
           <EmptyState title="Nothing here yet">
-            Your feed is the logging of the people you follow.{" "}
             <Link href="/people" className="text-accent-3 underline">
               Find people
             </Link>{" "}
-            or log your own piece — it shows up here too.
+            to follow, and their reading lands here.
           </EmptyState>
         ) : (
           <>
             {showingNetwork && (
               <p className="mt-6 border-l-4 border-accent-3 bg-paper px-4 py-3 font-serif text-[14px] leading-[1.55] text-foreground/75">
-                Nothing from people you follow yet — here&apos;s what the wider
-                network is reading.{" "}
+                No one you follow has logged yet. This is the wider network.{" "}
                 <Link
                   href="/people"
                   className="font-structural text-xs font-bold uppercase tracking-[0.08em] text-accent-3 underline"
