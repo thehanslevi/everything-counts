@@ -67,12 +67,12 @@ export default async function NotificationsPage() {
 
 function NotificationRow({ n }: { n: AppNotification }) {
   const actorName = n.actor ? `@${n.actor.handle}` : "Someone";
-  const href =
-    n.type === "log" && n.workId
-      ? `/work/${n.workId}`
-      : n.actor
-        ? `/u/${n.actor.handle}`
-        : "/";
+  const isWork = (n.type === "log" || n.type === "coread") && n.workId;
+  const href = isWork
+    ? `/work/${n.workId}`
+    : n.actor
+      ? `/u/${n.actor.handle}`
+      : "/";
 
   return (
     <Link
@@ -94,6 +94,15 @@ function NotificationRow({ n }: { n: AppNotification }) {
         {n.type === "log" && (
           <>
             logged{" "}
+            <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
+              {n.logTitle ?? "a piece"}
+            </span>
+            .
+          </>
+        )}
+        {n.type === "coread" && (
+          <>
+            also read{" "}
             <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
               {n.logTitle ?? "a piece"}
             </span>
