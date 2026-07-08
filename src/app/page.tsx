@@ -34,20 +34,17 @@ export default async function Home({
         <SiteHeader />
 
         <section className="mt-14 border-[3px] border-foreground bg-paper p-6 sm:p-8">
-          <h2 className="font-structural text-2xl font-black uppercase leading-[1.05] tracking-[-0.01em] text-foreground sm:text-3xl">
-            The essay counts. The poem counts.
-            <br />
-            The chapter counts.
+          <h2 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground sm:text-4xl">
+            Books aren&apos;t the half of it.
           </h2>
           <p className="mt-4 font-serif text-[15px] leading-[1.6] text-foreground/75">
-            Keep a record of what you read, and see what the people you trust
-            are reading.
+            Keep a record of what you read, and see what others are reading.
           </p>
           <Link
             href={hasSession ? "/welcome" : "/signin"}
             className="mt-6 inline-block bg-accent px-6 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
           >
-            {hasSession ? "Finish setup" : "Start your record"}
+            {hasSession ? "Finish setup" : "Start logging"}
           </Link>
         </section>
 

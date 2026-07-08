@@ -73,7 +73,7 @@ export function WelcomeForm() {
         disabled={isPending}
         className="self-start bg-accent px-6 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85 disabled:opacity-40"
       >
-        {isPending ? "Working" : "Start your record"}
+        {isPending ? "Working" : "Start logging"}
       </button>
     </form>
   );
