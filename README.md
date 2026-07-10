@@ -6,21 +6,9 @@
 
 Built by Hannah Levinson • [hrlevinson.com](https://hrlevinson.com)
 
-A place to log reading that doesn't count anywhere else: articles, blogs, chapters, newsletters, papers, poems, reports, and more. A reminder that the number of books on a "DNC" or "read" shelf don't adequately represent a life in letters. A way to express yourself as a reader that goes beyond Goodreads.
+A place to log the reading that never counts anywhere else: articles, blogs, chapters, essays, newsletters, papers, poems, reports.
 
-**Live:** https://everything-counts.vercel.app/ · iOS app in App Store review (a native shell around the same site that logs straight from the share sheet).
-
-Sign up, record what you read, connect with other readers who identify beyond-the-book. Every user has a real account and nothing is seeded; the app runs on Postgres (Supabase) with row-level security behind a thin data-access layer.
-
-## The idea
-
-Reading is so much more than books: It's longform prose, sometimes just an edited chapter via a PDF, a Substack post, or a report skimmed for a meeting. This is where it counts.
-
-Two rules:
-
-Books are out. Here a unit is any other discrete piece of writing. 
-
-A few smaller choices follow from those two. Logs go public the moment you save them, so logging a piece shares it and there's no separate share step (a private option is planned). When several people log the same piece, their logs collect on one work page, "four people you follow read this." Your profile keeps a running count of what you've read and a rough sense of the hours behind it.
+[everything-counts.vercel.app](https://everything-counts.vercel.app/) · [Download on the App Store](https://apps.apple.com/app/id6787774280)
 
 ## Design
 
