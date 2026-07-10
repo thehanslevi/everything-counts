@@ -6,15 +6,9 @@
 
 Built by Hannah Levinson • [hrlevinson.com](https://hrlevinson.com)
 
-A place to log the reading that never counts anywhere else: articles, blogs, chapters, essays, newsletters, papers, poems, reports.
+A place to log reading that doesn't count on Goodreads: articles, blogs, chapters, essays, newsletters, papers, poems, reports.
 
 [everything-counts.vercel.app](https://everything-counts.vercel.app/) · [Download on the App Store](https://apps.apple.com/app/id6787774280)
-
-## Design
-
-Everything Counts draws on Japanese avant-garde poster art aesthetics for its taxi-yellow field, sumi-ink black, and three clashing accents (vermilion, magenta, electric blue - see the work of Tadanori Yokoo).
-
-The logo is a rising-sun seal: a vermilion disc ringed by radiating beams, ragged text, and a top corner turned down like a dog-eared page. Full spec, palette, and thinking live in [BRAND.md](BRAND.md).
 
 ## Stack
 
