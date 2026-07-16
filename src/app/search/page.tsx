@@ -87,7 +87,7 @@ export default async function Search({
             {works.length > 0 && (
               <div className="mt-10">
                 <h3 className="font-structural text-xs font-bold uppercase tracking-[0.2em] text-foreground/50">
-                  Works
+                  Pieces
                 </h3>
                 <ol className="mt-3 flex flex-col gap-3">
                   {works.map(({ log, loggerCount }) => (
@@ -103,7 +103,7 @@ export default async function Search({
                             {log.form}
                           </span>
                           <span className="self-center px-3 font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] text-foreground/50">
-                            {loggerCount} logger{loggerCount === 1 ? "" : "s"}
+                            {loggerCount} reader{loggerCount === 1 ? "" : "s"}
                           </span>
                         </div>
                         <div className="px-4 py-3">

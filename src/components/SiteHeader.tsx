@@ -63,7 +63,7 @@ export async function SiteHeader({
         <input
           type="search"
           name="q"
-          placeholder="Search works and people"
+          placeholder="Search"
           className="w-full rounded-none border-2 border-foreground bg-paper px-3 py-2 font-structural text-sm text-foreground outline-none placeholder:text-foreground/40 focus:border-accent"
         />
         <button
