@@ -493,6 +493,56 @@ export async function ownLogDateForUrl(url: string): Promise<string | null> {
   return data?.created_at ?? null;
 }
 
+// What the readers of one work also logged — discovery through overlap.
+// Grouped by work (newest log carries the identity), ranked by how many of
+// this work's readers logged it, then by recency. Derived entirely from
+// public shared logs; blocked users are filtered like everywhere else.
+export async function getAlsoRead(
+  workId: string,
+  limit = 6,
+): Promise<{ log: Log; readerCount: number }[]> {
+  const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
+
+  const { data: readers } = await supabase
+    .from("logs")
+    .select("user_id")
+    .eq("work_id", workId)
+    .eq("shared", true);
+  const readerIds = [...new Set((readers ?? []).map((r) => r.user_id))].filter(
+    (id) => !blocked.has(id),
+  );
+  if (readerIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .in("user_id", readerIds)
+    .neq("work_id", workId)
+    .eq("shared", true)
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  const byWork = new Map<string, { log: Log; readers: Set<string> }>();
+  for (const row of (data ?? []) as LogRow[]) {
+    const log = logFromRow(row);
+    const entry = byWork.get(log.workId);
+    if (entry) {
+      entry.readers.add(log.userId);
+    } else {
+      byWork.set(log.workId, { log, readers: new Set([log.userId]) });
+    }
+  }
+  return [...byWork.values()]
+    .map(({ log, readers: r }) => ({ log, readerCount: r.size }))
+    .sort(
+      (a, b) =>
+        b.readerCount - a.readerCount ||
+        b.log.createdAt.localeCompare(a.log.createdAt),
+    )
+    .slice(0, limit);
+}
+
 // A single log, only if it belongs to the signed-in user (for editing).
 export async function getOwnLog(id: string): Promise<Log | undefined> {
   const supabase = await createClient();

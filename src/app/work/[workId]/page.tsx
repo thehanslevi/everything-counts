@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getFolloweeIds, getSessionProfile, getWork } from "@/lib/data/logs";
+import {
+  getAlsoRead,
+  getFolloweeIds,
+  getSessionProfile,
+  getWork,
+} from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Stars, formColor } from "@/components/LogCard";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -42,9 +47,10 @@ export default async function WorkPage({
   params: Promise<{ workId: string }>;
 }) {
   const { workId } = await params;
-  const [work, { profile: viewer }] = await Promise.all([
+  const [work, { profile: viewer }, alsoRead] = await Promise.all([
     getWork(workId),
     getSessionProfile(),
+    getAlsoRead(workId),
   ]);
   if (!work) notFound();
 
@@ -165,6 +171,48 @@ export default async function WorkPage({
           ))}
         </ol>
       </section>
+
+      {/* Discovery through overlap: what this work's readers also logged. */}
+      {alsoRead.length > 0 && (
+        <section className="mt-16">
+          <h2 className="border-b-[3px] border-foreground pb-3 font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground">
+            Readers of this also read
+          </h2>
+          <ol className="mt-6 flex flex-col gap-3">
+            {alsoRead.map(({ log, readerCount }) => (
+              <li key={log.workId}>
+                <Link
+                  href={`/work/${log.workId}`}
+                  className="flex items-center justify-between gap-4 border-[3px] border-foreground bg-paper transition-transform hover:-translate-y-0.5"
+                >
+                  <span className="flex min-w-0 items-center">
+                    <span
+                      className={`${formColor(log.form)} self-stretch px-2 py-2 font-structural text-[0.6rem] font-bold uppercase tracking-[0.14em] text-white [writing-mode:vertical-rl]`}
+                    >
+                      {log.form}
+                    </span>
+                    <span className="min-w-0 px-4 py-3">
+                      <span className="block truncate font-structural text-sm font-black uppercase tracking-[-0.01em] text-foreground">
+                        {log.title}
+                      </span>
+                      {(log.author || log.source) && (
+                        <span className="block truncate font-structural text-[0.65rem] font-bold uppercase tracking-[0.1em] text-foreground/55">
+                          {[log.author, log.source].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                  {readerCount > 1 && (
+                    <span className="shrink-0 pr-4 font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] text-foreground/50">
+                      {readerCount} readers
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </main>
   );
 }

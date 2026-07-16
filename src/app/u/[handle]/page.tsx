@@ -30,6 +30,9 @@ export async function generateMetadata({
   return {
     title: `${person.name} (@${person.handle}) — Everything Counts`,
     description: `${person.name}'s reading record on Everything Counts.`,
+    alternates: {
+      types: { "application/rss+xml": `/u/${person.handle}/rss` },
+    },
   };
 }
 

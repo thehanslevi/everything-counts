@@ -55,6 +55,33 @@ export function LogForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUrl]);
 
+  // Paste-to-log: paste a URL anywhere on the page (not into a field) while
+  // the link box is empty, and the form takes it and fetches. Zero-friction
+  // path for "I have the link on my clipboard already".
+  const urlRef = useRef(fields.url);
+  urlRef.current = fields.url;
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+      ) {
+        return;
+      }
+      const text = e.clipboardData?.getData("text")?.trim();
+      if (!text || !/^https?:\/\/\S+$/i.test(text) || urlRef.current.trim()) {
+        return;
+      }
+      e.preventDefault();
+      setFields((prev) => ({ ...prev, url: text }));
+      void fetchMetadata(text);
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function update<K extends keyof typeof fields>(
     key: K,
     value: (typeof fields)[K],
