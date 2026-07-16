@@ -472,6 +472,27 @@ export async function getWork(
   };
 }
 
+// When (if ever) the signed-in user already logged this URL's work — powers
+// the "you logged this before" warning in the log form. Uses the same
+// canonical work id as saving, so it matches exactly what a save would pool.
+export async function ownLogDateForUrl(url: string): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !url.trim()) return null;
+
+  const { data } = await supabase
+    .from("logs")
+    .select("created_at")
+    .eq("user_id", user.id)
+    .eq("work_id", workIdFor(url, ""))
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.created_at ?? null;
+}
+
 // A single log, only if it belongs to the signed-in user (for editing).
 export async function getOwnLog(id: string): Promise<Log | undefined> {
   const supabase = await createClient();

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   addLog,
   deleteLog,
+  ownLogDateForUrl,
   reportContent,
   setBlocked,
   updateLog,
@@ -67,6 +68,17 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
       ok: false,
       error: err instanceof Error ? err.message : "Could not save the log.",
     };
+  }
+}
+
+// Has the signed-in user already logged this URL? Returns the date of their
+// most recent log of it, or null. Advisory only — rereads are real reading,
+// so the form warns and never blocks.
+export async function checkAlreadyLogged(url: string): Promise<string | null> {
+  try {
+    return await ownLogDateForUrl(url);
+  } catch {
+    return null;
   }
 }
 

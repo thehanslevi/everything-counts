@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { createLog } from "@/app/actions";
+import { checkAlreadyLogged, createLog } from "@/app/actions";
 import { FORMS, type Form } from "@/lib/data/types";
 import { Mark } from "@/components/Mark";
 
@@ -40,6 +40,7 @@ export function LogForm({
   const [fetched, setFetched] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [priorLog, setPriorLog] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Share-sheet landing pad: when a URL arrives via ?logurl= (from the iOS
@@ -58,17 +59,25 @@ export function LogForm({
     key: K,
     value: (typeof fields)[K],
   ) {
+    if (key === "url") setPriorLog(null);
     setFields((prev) => ({ ...prev, [key]: value }));
   }
 
   async function fetchMetadata(rawUrl: string) {
     setFetchError(null);
     setSaved(null);
+    setPriorLog(null);
     if (!rawUrl.trim()) {
       setFetchError("Paste a link first.");
       return;
     }
     setFetching(true);
+    // Advisory, in parallel with the metadata fetch: have you logged this
+    // URL before? Warns; never blocks — rereads are real reading.
+    void checkAlreadyLogged(rawUrl.trim()).then(
+      (date) => setPriorLog(date),
+      () => {},
+    );
     try {
       const res = await fetch(
         `/api/metadata?url=${encodeURIComponent(rawUrl.trim())}`,
@@ -125,6 +134,7 @@ export function LogForm({
       setSaved(result.log?.title ?? fields.title);
       setFields(initialFields);
       setFetched(false);
+      setPriorLog(null);
     });
   }
 
@@ -168,6 +178,17 @@ export function LogForm({
         {fetched && !fetchError && (
           <p className="font-structural text-xs uppercase tracking-wide text-foreground/50">
             Pulled what we could. Edit before saving.
+          </p>
+        )}
+        {priorLog && (
+          <p className="border-l-4 border-accent-2 bg-[#fbf7ee] px-3 py-2 font-structural text-xs font-bold uppercase tracking-[0.08em] text-foreground">
+            You logged this on{" "}
+            {new Date(priorLog).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+            . Saving again adds a second entry.
           </p>
         )}
       </div>
@@ -266,13 +287,18 @@ export function LogForm({
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={isPending}
-            className={`self-start ${buttonClass} px-6`}
-          >
-            {isPending ? "Saving" : "Save to your log"}
-          </button>
+          {/* On phones the details section runs past the fold, so Save pins
+              just above the bottom tab bar (whose height the body already
+              reserves) instead of hiding at the end of the scroll. */}
+          <div className="max-sm:sticky max-sm:bottom-[calc(4.75rem+env(safe-area-inset-bottom))] max-sm:z-10 max-sm:bg-paper max-sm:py-2">
+            <button
+              type="submit"
+              disabled={isPending}
+              className={`${buttonClass} px-6`}
+            >
+              {isPending ? "Saving" : "Save to your log"}
+            </button>
+          </div>
         </div>
       )}
 
