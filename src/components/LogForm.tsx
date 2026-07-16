@@ -24,7 +24,13 @@ const inputClass =
 const buttonClass =
   "rounded-none bg-accent px-5 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-transform hover:opacity-85 active:scale-95 disabled:opacity-40";
 
-export function LogForm({ initialUrl }: { initialUrl?: string }) {
+export function LogForm({
+  initialUrl,
+  autoFocus,
+}: {
+  initialUrl?: string;
+  autoFocus?: boolean;
+}) {
   const [fields, setFields] = useState({
     ...initialFields,
     url: initialUrl ?? "",
@@ -139,6 +145,7 @@ export function LogForm({ initialUrl }: { initialUrl?: string }) {
             type="url"
             inputMode="url"
             autoComplete="off"
+            autoFocus={autoFocus}
             placeholder="https://..."
             value={fields.url}
             onChange={(e) => update("url", e.target.value)}

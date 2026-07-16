@@ -13,6 +13,7 @@ type Tab = { href: string; label: string; match: (p: string) => boolean };
 const TABS: Tab[] = [
   { href: "/", label: "Record", match: (p) => p === "/" },
   { href: "/feed", label: "Feed", match: (p) => p.startsWith("/feed") },
+  { href: "/log", label: "Log", match: (p) => p.startsWith("/log") },
   { href: "/search", label: "Search", match: (p) => p.startsWith("/search") },
   { href: "/people", label: "People", match: (p) => p.startsWith("/people") },
 ];
@@ -43,6 +44,14 @@ function Glyph({ tab, active }: { tab: Tab; active: boolean }) {
         <svg {...common}>
           <rect x="4" y="4" width="16" height="7" />
           <rect x="4" y="14" width="16" height="6" />
+        </svg>
+      );
+    case "Log":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <line x1="12" y1="8" x2="12" y2="16" />
+          <line x1="8" y1="12" x2="16" y2="12" />
         </svg>
       );
     case "Search":

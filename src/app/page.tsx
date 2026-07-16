@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   getLogsByUser,
   getRecentActivity,
@@ -15,8 +16,8 @@ export const dynamic = "force-dynamic";
 // Home. Signed in: log a piece + your chronological record, newest first.
 // Signed out: the pitch and recent activity across the network.
 //
-// ?logurl= is the share-sheet landing pad: the iOS share extension opens the
-// app here with the shared URL, and the log form pre-fills from it.
+// ?logurl= is the iOS share extension's landing pad; it forwards to the
+// focused /log page so every share-to-log path goes through one flow.
 export default async function Home({
   searchParams,
 }: {
@@ -26,6 +27,10 @@ export default async function Home({
     getSessionProfile(),
     searchParams,
   ]);
+
+  if (logurl?.trim()) {
+    redirect(`/log?url=${encodeURIComponent(logurl.trim())}`);
+  }
 
   if (!profile) {
     const recent = await getRecentActivity();
@@ -86,7 +91,7 @@ export default async function Home({
           Log a piece
         </h2>
         <div className="p-5 sm:p-6">
-          <LogForm initialUrl={logurl} />
+          <LogForm />
         </div>
         {/* Import a whole list at once. Tucked away so it never competes with
             the primary single-log flow. */}

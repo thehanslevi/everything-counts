@@ -166,14 +166,22 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   redirect("/welcome");
 }
 
+// Only same-site relative paths survive as redirect targets — anything with a
+// scheme or a protocol-relative // is an open-redirect vector and is dropped.
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  return raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+}
+
 export async function signIn(formData: FormData): Promise<ActionResult> {
   const email = (formData.get("email") as string | null)?.trim() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
+  const next = safeNext(formData.get("next") as string | null);
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, error: error.message };
-  redirect("/");
+  redirect(next ?? "/");
 }
 
 export async function signOut(): Promise<void> {

@@ -10,13 +10,16 @@ export const dynamic = "force-dynamic";
 export default async function SignIn({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; next?: string }>;
 }) {
-  const [{ profile, hasSession }, { ref }] = await Promise.all([
+  const [{ profile, hasSession }, { ref, next }] = await Promise.all([
     getSessionProfile(),
     searchParams,
   ]);
-  if (profile) redirect("/");
+  // Same-site relative paths only; anything else is an open-redirect vector.
+  const safeNext =
+    next && next.startsWith("/") && !next.startsWith("//") ? next : undefined;
+  if (profile) redirect(safeNext ?? "/");
   if (hasSession) redirect("/welcome");
 
   const inviter = ref ? await getProfileByHandle(ref) : undefined;
@@ -37,7 +40,7 @@ export default async function SignIn({
       <section
         className={`${inviter ? "mt-6" : "mt-14"} border-[3px] border-foreground bg-paper p-6 sm:p-8`}
       >
-        <AuthForm inviteRef={inviter?.handle} />
+        <AuthForm inviteRef={inviter?.handle} next={safeNext} />
         <p className="mt-6 border-t border-foreground/25 pt-3 font-structural text-[0.65rem] font-medium uppercase tracking-[0.12em] text-foreground/50">
           Logs are public by default.{" "}
           <a href="/privacy" className="text-accent hover:underline">
