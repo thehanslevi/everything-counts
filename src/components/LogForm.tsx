@@ -41,7 +41,17 @@ export function LogForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [priorLog, setPriorLog] = useState<string | null>(null);
+  const [canReadClipboard, setCanReadClipboard] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Feature-detect after mount: the server can't know, and rendering the
+  // button on the server would mismatch on hydration.
+  useEffect(() => {
+    setCanReadClipboard(
+      typeof navigator !== "undefined" &&
+        typeof navigator.clipboard?.readText === "function",
+    );
+  }, []);
 
   // Share-sheet landing pad: when a URL arrives via ?logurl= (from the iOS
   // share extension or a bookmarklet), fetch its metadata immediately so the
@@ -137,6 +147,24 @@ export function LogForm({
     void fetchMetadata(fields.url);
   }
 
+  // Clipboard-to-log. Reading the clipboard needs a user gesture (and, in some
+  // browsers, a permission tap), so this is a button rather than something
+  // that happens on load. Only rendered where the API exists.
+  async function fromClipboard() {
+    setFetchError(null);
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (!/^https?:\/\/\S+$/i.test(text)) {
+        setFetchError("No link on the clipboard.");
+        return;
+      }
+      setFields((prev) => ({ ...prev, url: text }));
+      void fetchMetadata(text);
+    } catch {
+      setFetchError("Couldn't read the clipboard. Paste into the field.");
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFormError(null);
@@ -197,6 +225,15 @@ export function LogForm({
             {fetching ? "Fetching" : "Fetch details"}
           </button>
         </div>
+        {canReadClipboard && !fields.url.trim() && !fetching && (
+          <button
+            type="button"
+            onClick={fromClipboard}
+            className="self-start border-2 border-foreground px-3 py-1.5 font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+          >
+            Paste from clipboard
+          </button>
+        )}
         {fetchError && (
           <p className="font-structural text-xs font-bold uppercase tracking-wide text-accent">
             {fetchError}
