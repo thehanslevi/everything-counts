@@ -3,6 +3,7 @@ import { getSessionProfile } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LogForm } from "@/components/LogForm";
 import { Bookmarklet } from "@/components/Bookmarklet";
+import { FollowPeopleStep } from "@/components/FollowPeopleStep";
 
 export const metadata = { title: "Log a piece — Everything Counts" };
 export const dynamic = "force-dynamic";
@@ -23,13 +24,14 @@ function sharedUrl(params: { url?: string; text?: string }): string | undefined 
 export default async function LogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ url?: string; text?: string }>;
+  searchParams: Promise<{ url?: string; text?: string; new?: string }>;
 }) {
   const [{ profile, hasSession }, params] = await Promise.all([
     getSessionProfile(),
     searchParams,
   ]);
   const shared = sharedUrl(params);
+  const isNew = params.new === "1";
 
   // Signed out: through sign-in and straight back here, URL intact.
   if (!profile) {
@@ -44,13 +46,20 @@ export default async function LogPage({
 
       <section className="mt-10 border-[3px] border-foreground bg-paper">
         <h2 className="border-b-[3px] border-foreground bg-accent-2 px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-white">
-          Log a piece
+          {isNew ? "Log the last thing you read" : "Log a piece"}
         </h2>
         <div className="p-5 sm:p-6">
+          {isNew && (
+            <p className="mb-5 font-serif text-[15px] leading-[1.6] text-foreground/75">
+              An article, a newsletter, a chapter — whatever you finished most
+              recently. Paste the link.
+            </p>
+          )}
           <LogForm initialUrl={shared} autoFocus={!shared} />
         </div>
       </section>
 
+      {isNew && <FollowPeopleStep />}
       {!shared && <Bookmarklet />}
     </main>
   );

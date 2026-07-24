@@ -34,7 +34,8 @@ export function Bookmarklet() {
         ⊕ Log this
       </a>
       <p className="mt-4 font-serif text-[13px] leading-[1.5] text-foreground/55">
-        On a phone, use the share sheet — the iOS app has it built in.
+        On a phone: share a page from any app (Safari, Substack) and pick
+        Everything Counts. On this page, pasting a link logs it too.
       </p>
     </section>
   );

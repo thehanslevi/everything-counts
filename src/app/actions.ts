@@ -271,7 +271,10 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
   }
   cookieStore.delete(INVITE_COOKIE);
 
-  redirect("/");
+  // Straight to logging: a brand-new account's next move is its first piece,
+  // not an empty record. ?new=1 shows the first-log prompt and the
+  // log-from-anywhere card once.
+  redirect("/log?new=1");
 }
 
 // Edit your own profile: name, bio, one link, and optionally the avatar. The
