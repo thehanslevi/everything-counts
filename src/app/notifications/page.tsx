@@ -8,7 +8,10 @@ import {
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
+import { TestPushButton } from "@/components/TestPushButton";
 import type { AppNotification } from "@/lib/data/types";
+
+const FOUNDER_HANDLE = "hrlevinson";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +49,8 @@ export default async function NotificationsPage() {
             Notifications
           </h2>
         </div>
+
+        {profile.handle === FOUNDER_HANDLE && <TestPushButton />}
 
         {items.length === 0 ? (
           <EmptyState title="Nothing yet" />

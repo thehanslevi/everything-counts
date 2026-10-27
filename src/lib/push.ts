@@ -18,11 +18,17 @@ export interface Notification {
   url?: string;
 }
 
-// Deliver one push. Swallows every failure.
-export async function notify(n: Notification): Promise<void> {
-  if (!PUSH_SECRET || !SUPABASE_URL || !ANON_KEY || !n.recipientUserId) return;
+// Deliver one push. Swallows every failure. Returns the edge function's
+// summary ({ ok, sent }) when it answered, null otherwise — callers that
+// care (the test button) can report it; everything else ignores it.
+export async function notify(
+  n: Notification,
+): Promise<{ ok?: boolean; sent?: number; error?: string } | null> {
+  if (!PUSH_SECRET || !SUPABASE_URL || !ANON_KEY || !n.recipientUserId) {
+    return null;
+  }
   try {
-    await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -31,8 +37,10 @@ export async function notify(n: Notification): Promise<void> {
       },
       body: JSON.stringify(n),
     });
+    return (await res.json().catch(() => null)) ?? { ok: res.ok };
   } catch (err) {
     console.error("notify failed", err);
+    return null;
   }
 }
 

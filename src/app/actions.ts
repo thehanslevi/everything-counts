@@ -27,6 +27,7 @@ export interface ActionResult {
   ok: boolean;
   error?: string;
   log?: Log;
+  message?: string; // a plain outcome to show, when there is one
 }
 
 // --- Logging -----------------------------------------------------------------
@@ -551,6 +552,39 @@ export async function sendPiece(formData: FormData): Promise<ActionResult> {
 }
 
 // --- Push notifications ------------------------------------------------------
+
+// Founder-only diagnostic: push to your own devices and say how many APNs
+// took. Exercises the whole chain (secret, key, token, delivery) without any
+// of it leaving the server.
+export async function sendTestPush(): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in first." };
+  const me = await myHandle();
+  if (me !== FOUNDER_HANDLE) return { ok: false, error: "Not available." };
+
+  if (!process.env.PUSH_SECRET) {
+    return { ok: false, error: "PUSH_SECRET is not set on this deployment." };
+  }
+  const result = await notify({
+    recipientUserId: user.id,
+    title: "Push works",
+    body: "This came through APNs from Everything Counts.",
+    url: "/notifications",
+  });
+  if (!result) return { ok: false, error: "The push function didn't answer." };
+  if (result.error) return { ok: false, error: result.error };
+  const sent = result.sent ?? 0;
+  return {
+    ok: true,
+    message:
+      sent === 0
+        ? "APNs accepted 0 devices. No token on file, or Apple rejected it."
+        : `APNs accepted ${sent} device${sent === 1 ? "" : "s"}. Check your lock screen.`,
+  };
+}
 
 // Store (or refresh) an APNs device token for the signed-in user. Called from
 // the native shell after push registration (see PushRegistrar). Silent no-op
