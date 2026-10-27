@@ -10,6 +10,7 @@ import {
   type NewLog,
   type Profile,
   type ProfileRow,
+  type Reply,
   type Work,
 } from "./types";
 
@@ -318,6 +319,8 @@ type NotifRaw = {
   created_at: string;
   actor: ProfileRow | null;
   log: { title: string; work_id: string } | null;
+  reply: { body: string } | null;
+  send: { title: string; url: string | null; note: string | null } | null;
 };
 
 // Count of unread notifications, for the header bell badge.
@@ -343,7 +346,7 @@ export async function getNotifications(
   const { data } = await supabase
     .from("notifications")
     .select(
-      "id, type, work_id, read, created_at, actor:profiles!actor_id(id, handle, name, bio, link, avatar_url), log:logs(title, work_id)",
+      "id, type, work_id, read, created_at, actor:profiles!actor_id(id, handle, name, bio, link, avatar_url), log:logs(title, work_id), reply:replies!reply_id(body), send:sends!send_id(title, url, note)",
     )
     .eq("user_id", viewerId)
     .order("created_at", { ascending: false })
@@ -355,11 +358,144 @@ export async function getNotifications(
       id: n.id,
       type: n.type,
       actor: n.actor ? profileFromRow(n.actor) : null,
-      logTitle: n.log?.title ?? null,
+      logTitle: n.log?.title ?? n.send?.title ?? null,
+      body: n.reply?.body ?? n.send?.note ?? null,
+      pieceUrl: n.send?.url ?? null,
       workId: n.work_id ?? n.log?.work_id ?? null,
       read: n.read,
       createdAt: n.created_at,
     }));
+}
+
+// --- Replies -----------------------------------------------------------------
+
+type ReplyRow = {
+  id: string;
+  log_id: string;
+  body: string;
+  created_at: string;
+  profiles: ProfileRow;
+};
+
+// Replies on a set of logs, oldest first, keyed by log id. Replies from
+// people this viewer has blocked are dropped.
+export async function getRepliesForLogs(
+  logIds: string[],
+): Promise<Map<string, Reply[]>> {
+  const out = new Map<string, Reply[]>();
+  if (logIds.length === 0) return out;
+  const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
+  const { data } = await supabase
+    .from("replies")
+    .select(
+      "id, log_id, body, created_at, profiles(id, handle, name, bio, link, avatar_url)",
+    )
+    .in("log_id", logIds)
+    .order("created_at", { ascending: true });
+
+  for (const row of (data ?? []) as unknown as ReplyRow[]) {
+    const user = profileFromRow(row.profiles);
+    if (blocked.has(user.id)) continue;
+    const list = out.get(row.log_id) ?? [];
+    list.push({
+      id: row.id,
+      logId: row.log_id,
+      user,
+      body: row.body,
+      createdAt: row.created_at,
+    });
+    out.set(row.log_id, list);
+  }
+  return out;
+}
+
+// One line back on someone's log. RLS enforces the rest (shared log, not
+// your own, no block either way); this maps its refusals to plain words.
+// Returns what the caller needs to tell the log's owner.
+export async function addReply(
+  logId: string,
+  body: string,
+): Promise<{ ownerId: string; workId: string; title: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in to reply.");
+
+  const { data: log } = await supabase
+    .from("logs")
+    .select("user_id, work_id, title")
+    .eq("id", logId)
+    .maybeSingle();
+  if (!log) throw new Error("That log is gone.");
+  if (log.user_id === user.id) throw new Error("That's your own log.");
+
+  const { error } = await supabase
+    .from("replies")
+    .insert({ log_id: logId, user_id: user.id, body: body.trim() });
+  if (error) {
+    if (error.code === "23505") throw new Error("You already replied to this one.");
+    if (error.code === "42501") throw new Error("You can't reply to this log.");
+    throw new Error(error.message);
+  }
+  return { ownerId: log.user_id, workId: log.work_id, title: log.title };
+}
+
+// Remove a reply: yours, or any on your own log. RLS decides which.
+export async function deleteReply(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("replies").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// --- Sends -------------------------------------------------------------------
+
+// People the signed-in user can send a piece to: anyone connected by a
+// follow in either direction, minus blocks. Alphabetical by name.
+export async function getSendablePeople(viewerId: string): Promise<Profile[]> {
+  const supabase = await createClient();
+  const [{ data: outbound }, { data: inbound }] = await Promise.all([
+    supabase.from("follows").select("followee_id").eq("follower_id", viewerId),
+    supabase.from("follows").select("follower_id").eq("followee_id", viewerId),
+  ]);
+  const ids = new Set<string>([
+    ...(outbound ?? []).map((f) => f.followee_id),
+    ...(inbound ?? []).map((f) => f.follower_id),
+  ]);
+  ids.delete(viewerId);
+  const people = await profilesByIds([...ids]);
+  return people.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Hand a piece to one person. RLS enforces the connection and blocks.
+export async function addSend(input: {
+  recipientId: string;
+  workId: string;
+  url: string | null;
+  title: string;
+  note: string | null;
+}): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in to send a piece.");
+
+  const { error } = await supabase.from("sends").insert({
+    sender_id: user.id,
+    recipient_id: input.recipientId,
+    work_id: input.workId,
+    url: input.url,
+    title: input.title.trim(),
+    note: input.note?.trim() || null,
+  });
+  if (error) {
+    if (error.code === "42501") {
+      throw new Error("You can send to people you follow, or who follow you.");
+    }
+    throw new Error(error.message);
+  }
 }
 
 // Mark all of the signed-in user's notifications read.

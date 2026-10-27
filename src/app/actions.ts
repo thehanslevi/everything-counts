@@ -6,7 +6,10 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import {
   addLog,
+  addReply,
+  addSend,
   deleteLog,
+  deleteReply,
   ownLogDateForUrl,
   reportContent,
   setBlocked,
@@ -450,6 +453,101 @@ export async function toggleFollow(formData: FormData): Promise<void> {
 
   revalidatePath("/feed");
   revalidatePath("/people");
+}
+
+// --- Replies and sends -------------------------------------------------------
+
+// The signed-in user's handle, for naming them in a push. Null when signed out.
+async function myHandle(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("handle")
+    .eq("id", user.id)
+    .maybeSingle();
+  return data?.handle ?? null;
+}
+
+// A line back on someone's log. The log's owner hears about it.
+export async function replyToLog(formData: FormData): Promise<ActionResult> {
+  const logId = (formData.get("logId") as string | null) ?? "";
+  const body = (formData.get("body") as string | null)?.trim() ?? "";
+  if (!logId) return { ok: false, error: "Which log?" };
+  if (!body) return { ok: false, error: "Write a line first." };
+  if (body.length > 500) {
+    return { ok: false, error: "Keep it under 500 characters." };
+  }
+
+  try {
+    const { ownerId, workId, title } = await addReply(logId, body);
+    revalidatePath(`/work/${workId}`);
+    const me = await myHandle();
+    if (me) {
+      await notify({
+        recipientUserId: ownerId,
+        title: `@${me} replied to your log of “${title}”`,
+        body,
+        url: `/work/${workId}`,
+      });
+    }
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not reply.",
+    };
+  }
+}
+
+// Remove a reply — yours, or any on your own log. RLS decides which.
+export async function removeReply(formData: FormData): Promise<void> {
+  const id = (formData.get("replyId") as string | null) ?? "";
+  const workId = (formData.get("workId") as string | null) ?? "";
+  if (!id) return;
+  try {
+    await deleteReply(id);
+  } catch {
+    // Nothing to show: the page re-renders with whatever is actually there.
+  }
+  if (workId) revalidatePath(`/work/${workId}`);
+}
+
+// Hand a piece to one person, with an optional line. They get a push that
+// opens straight into logging it.
+export async function sendPiece(formData: FormData): Promise<ActionResult> {
+  const recipientId = (formData.get("recipientId") as string | null) ?? "";
+  const workId = (formData.get("workId") as string | null) ?? "";
+  const title = (formData.get("title") as string | null)?.trim() ?? "";
+  const url = (formData.get("url") as string | null)?.trim() || null;
+  const note = (formData.get("note") as string | null)?.trim() ?? "";
+  if (!recipientId) return { ok: false, error: "Pick a person." };
+  if (!workId || !title) return { ok: false, error: "Nothing to send." };
+  if (note.length > 500) {
+    return { ok: false, error: "Keep the note under 500 characters." };
+  }
+
+  try {
+    await addSend({ recipientId, workId, url, title, note: note || null });
+    const me = await myHandle();
+    if (me) {
+      await notify({
+        recipientUserId: recipientId,
+        title: `@${me} sent you “${title}”`,
+        body: note || undefined,
+        url: url ? `/log?url=${encodeURIComponent(url)}` : `/work/${workId}`,
+      });
+    }
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not send that.",
+    };
+  }
 }
 
 // --- Push notifications ------------------------------------------------------

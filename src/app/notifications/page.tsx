@@ -65,12 +65,23 @@ export default async function NotificationsPage() {
 
 function NotificationRow({ n }: { n: AppNotification }) {
   const actorName = n.actor ? `@${n.actor.handle}` : "Someone";
-  const isWork = (n.type === "log" || n.type === "coread") && n.workId;
-  const href = isWork
-    ? `/work/${n.workId}`
-    : n.actor
-      ? `/u/${n.actor.handle}`
-      : "/";
+  const isWork =
+    (n.type === "log" || n.type === "coread" || n.type === "reply") &&
+    n.workId;
+  // A sent piece opens straight into logging it; everything else opens the
+  // work, or the person.
+  const href =
+    n.type === "sent"
+      ? n.pieceUrl
+        ? `/log?url=${encodeURIComponent(n.pieceUrl)}`
+        : n.workId
+          ? `/work/${n.workId}`
+          : "/"
+      : isWork
+        ? `/work/${n.workId}`
+        : n.actor
+          ? `/u/${n.actor.handle}`
+          : "/";
 
   return (
     <Link
@@ -105,6 +116,27 @@ function NotificationRow({ n }: { n: AppNotification }) {
               {n.logTitle ?? "a piece"}
             </span>
             .
+          </>
+        )}
+        {n.type === "reply" && (
+          <>
+            replied to your log of{" "}
+            <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
+              {n.logTitle ?? "a piece"}
+            </span>
+            {n.body ? <>: “{n.body}”</> : "."}
+          </>
+        )}
+        {n.type === "sent" && (
+          <>
+            sent you{" "}
+            <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
+              {n.logTitle ?? "a piece"}
+            </span>
+            {n.body ? <>: “{n.body}”</> : "."}{" "}
+            <span className="font-structural text-xs font-bold uppercase tracking-[0.1em] text-accent">
+              Log it →
+            </span>
           </>
         )}
       </span>

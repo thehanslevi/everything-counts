@@ -33,11 +33,23 @@ export interface Profile {
 // An in-app notification, resolved for display.
 export interface AppNotification {
   id: string;
-  type: "follow" | "log" | string;
+  type: "follow" | "log" | "coread" | "reply" | "sent" | string;
   actor: Profile | null;
-  logTitle: string | null;
+  logTitle: string | null; // the piece involved, when there is one
+  body: string | null; // a reply's text, or the line sent with a piece
+  pieceUrl: string | null; // for a sent piece: the link to log it from
   workId: string | null;
   read: boolean;
+  createdAt: string;
+}
+
+// A line back on someone's log. One per person per log: a response to a
+// person's reading, not a thread.
+export interface Reply {
+  id: string;
+  logId: string;
+  user: Profile;
+  body: string;
   createdAt: string;
 }
 

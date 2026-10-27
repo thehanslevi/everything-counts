@@ -3,13 +3,19 @@ import Link from "next/link";
 import {
   getAlsoRead,
   getFolloweeIds,
+  getRepliesForLogs,
+  getSendablePeople,
   getSessionProfile,
   getWork,
 } from "@/lib/data/logs";
+import { removeReply } from "@/app/actions";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Stars, formColor } from "@/components/LogCard";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
-import type { Log, Profile } from "@/lib/data/types";
+import { Avatar } from "@/components/Avatar";
+import { ReplyForm } from "@/components/ReplyForm";
+import { SendPieceForm } from "@/components/SendPieceForm";
+import type { Log, Profile, Reply } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +59,12 @@ export default async function WorkPage({
     getAlsoRead(workId),
   ]);
   if (!work) notFound();
+
+  // Replies on each log, and who the viewer could send this piece to.
+  const [replies, sendable] = await Promise.all([
+    getRepliesForLogs(work.logs.map((log) => log.id)),
+    viewer ? getSendablePeople(viewer.id) : Promise.resolve([]),
+  ]);
 
   const byline = [work.author, work.source].filter(Boolean).join(" · ");
 
@@ -133,6 +145,14 @@ export default async function WorkPage({
               </a>
             )}
             <CopyLinkButton />
+            {viewer && (
+              <SendPieceForm
+                people={sendable}
+                workId={work.id}
+                url={work.url}
+                title={work.title}
+              />
+            )}
           </div>
         </div>
       </section>
@@ -166,7 +186,12 @@ export default async function WorkPage({
         <ol className="mt-8 flex flex-col gap-6">
           {work.logs.map((log) => (
             <li key={log.id}>
-              <PooledLog log={log} user={work.loggers.get(log.userId)} />
+              <PooledLog
+                log={log}
+                user={work.loggers.get(log.userId)}
+                replies={replies.get(log.id) ?? []}
+                viewer={viewer}
+              />
             </li>
           ))}
         </ol>
@@ -219,9 +244,27 @@ export default async function WorkPage({
 
 // One entry in the pool: who read it and when, plus their take and rating if
 // they left any. A bare entry (no take, no rating) is the norm and is complete
-// on its own — it records that this person read the piece.
-function PooledLog({ log, user }: { log: Log; user?: Profile }) {
-  const hasBody = Boolean(log.take) || log.rating != null;
+// on its own — it records that this person read the piece. Replies, when
+// there are any, sit under the take; a signed-in viewer who isn't the logger
+// gets one line back.
+function PooledLog({
+  log,
+  user,
+  replies,
+  viewer,
+}: {
+  log: Log;
+  user?: Profile;
+  replies: Reply[];
+  viewer: Profile | null;
+}) {
+  const isOwner = viewer?.id === log.userId;
+  const alreadyReplied = viewer
+    ? replies.some((r) => r.user.id === viewer.id)
+    : false;
+  const canReply = Boolean(viewer) && !isOwner && !alreadyReplied;
+  const hasBody =
+    Boolean(log.take) || log.rating != null || replies.length > 0 || canReply;
 
   return (
     <article className="border-[3px] border-foreground bg-paper">
@@ -257,6 +300,62 @@ function PooledLog({ log, user }: { log: Log; user?: Profile }) {
           {log.rating != null && (
             <div className={log.take ? "mt-3" : ""}>
               <Stars rating={log.rating} />
+            </div>
+          )}
+
+          {replies.length > 0 && (
+            <ol
+              className={`flex flex-col gap-3 ${
+                log.take || log.rating != null
+                  ? "mt-4 border-t border-foreground/30 pt-4"
+                  : ""
+              }`}
+            >
+              {replies.map((reply) => {
+                const canRemove =
+                  isOwner || viewer?.id === reply.user.id;
+                return (
+                  <li key={reply.id} className="flex items-start gap-3">
+                    <Avatar profile={reply.user} className="size-7 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-serif text-[13px] leading-[1.55] text-foreground/80">
+                        <Link
+                          href={`/u/${reply.user.handle}`}
+                          className="mr-2 font-structural text-xs font-bold uppercase tracking-[0.04em] text-foreground hover:underline"
+                        >
+                          @{reply.user.handle}
+                        </Link>
+                        {reply.body}
+                      </p>
+                    </div>
+                    {canRemove && (
+                      <form action={removeReply}>
+                        <input type="hidden" name="replyId" value={reply.id} />
+                        <input type="hidden" name="workId" value={log.workId} />
+                        <button
+                          type="submit"
+                          className="font-structural text-[0.6rem] font-bold uppercase tracking-[0.12em] text-foreground/40 hover:text-accent"
+                          aria-label="Remove reply"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {canReply && (
+            <div
+              className={
+                log.take || log.rating != null || replies.length > 0
+                  ? "mt-4"
+                  : ""
+              }
+            >
+              <ReplyForm logId={log.id} />
             </div>
           )}
         </div>
