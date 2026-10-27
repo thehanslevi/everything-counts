@@ -4,7 +4,11 @@
 // runs on the server behind /api/metadata. It fetches the page, pulls the
 // OpenGraph / standard meta tags, and returns a normalized result the logging
 // form can pre-fill. Everything is best-effort: missing fields come back null
-// and the user can fill them in by hand.
+// and the user can fill them in by hand. A page we can't read (paywall bot
+// walls, timeouts, 404s) is not an error — it's a partial result with what the
+// URL alone tells us, plus `error` saying why, so logging never dead-ends.
+
+import { coerceUrl } from "@/lib/data/url";
 
 export interface LinkMetadata {
   url: string;
@@ -13,6 +17,7 @@ export interface LinkMetadata {
   source: string | null; // publication / site name
   image: string | null; // lead image URL
   form: string | null; // best-guess form from the URL; the user can override
+  error: string | null; // why the fetch fell short, when it did
 }
 
 // Guess the form from where the piece lives, so saving is usually one tap.
@@ -97,16 +102,22 @@ function cleanSource(value: string | null): string | null {
 }
 
 export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
-  // Validate and normalize the URL up front.
-  let url: URL;
-  try {
-    url = new URL(rawUrl);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("Only http and https URLs are supported.");
-    }
-  } catch {
-    throw new Error("That does not look like a valid URL.");
-  }
+  // Lenient in, strict out: scheme-less and link-in-text inputs are fixed up;
+  // only something that can't be made into an http(s) URL is rejected.
+  const coerced = coerceUrl(rawUrl);
+  if (!coerced) throw new Error("That does not look like a link.");
+  const url = new URL(coerced);
+
+  // What we can say from the URL alone, for when the page itself won't talk.
+  const partial = (error: string): LinkMetadata => ({
+    url: url.toString(),
+    title: null,
+    author: null,
+    source: cleanSource(hostname(url.toString())),
+    image: null,
+    form: guessForm(url.toString()),
+    error,
+  });
 
   // Bound the fetch so a slow site cannot hang the request.
   const controller = new AbortController();
@@ -125,14 +136,21 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
       redirect: "follow",
     });
     if (!response.ok) {
-      throw new Error(`The page returned ${response.status}.`);
+      // Paywalled publishers often turn bots away at the door. That's their
+      // call; the person still read the piece, so they still get to log it.
+      return partial(
+        response.status === 401 || response.status === 403
+          ? "That site won't let us read it."
+          : `That page returned ${response.status}.`,
+      );
     }
     html = await response.text();
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new Error("The page took too long to respond.");
-    }
-    throw new Error("Could not reach that page.");
+    return partial(
+      err instanceof Error && err.name === "AbortError"
+        ? "That page took too long to respond."
+        : "Couldn't reach that page.",
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -167,5 +185,6 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
     source,
     image,
     form: guessForm(url.toString()),
+    error: null,
   };
 }

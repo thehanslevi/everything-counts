@@ -34,6 +34,38 @@ function isTrackingParam(key: string): boolean {
   return k.startsWith("utm_") || TRACKING_PARAMS.has(k);
 }
 
+// Turn whatever a person typed, pasted, or shared into a fetchable URL, or
+// null. Accepts a scheme-less "thecut.com/article/..." (adds https://) and
+// text with a link somewhere inside it ("Read this: https://..."), which is
+// what some share sheets hand over. Anything that still doesn't parse as
+// http(s) is null — callers decide how to say so.
+export function coerceUrl(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  const embedded = text.match(/https?:\/\/[^\s<>"'\])]+/i)?.[0];
+  let candidate: string;
+  if (embedded) {
+    candidate = embedded;
+  } else if (
+    /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(text)
+  ) {
+    candidate = `https://${text}`;
+  } else {
+    return null;
+  }
+  // A link at the end of a sentence drags its punctuation along.
+  candidate = candidate.replace(/[.,;:!?)]+$/, "");
+
+  try {
+    const u = new URL(candidate);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
 // Normalize a URL to a canonical string used as the clustering key.
 export function normalizeUrl(raw: string): string {
   try {

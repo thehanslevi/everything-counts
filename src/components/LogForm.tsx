@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { checkAlreadyLogged, createLog } from "@/app/actions";
 import { FORMS, type Form } from "@/lib/data/types";
+import { coerceUrl } from "@/lib/data/url";
 import { Mark } from "@/components/Mark";
 
 const initialFields = {
@@ -79,13 +80,13 @@ export function LogForm({
       ) {
         return;
       }
-      const text = e.clipboardData?.getData("text")?.trim();
-      if (!text || !/^https?:\/\/\S+$/i.test(text) || urlRef.current.trim()) {
-        return;
-      }
+      // Global paste is the one place that insists on an explicit scheme:
+      // without it, any pasted "notes.txt" would be mistaken for a link.
+      const text = e.clipboardData?.getData("text") ?? "";
+      const url = /https?:\/\//i.test(text) ? coerceUrl(text) : null;
+      if (!url || urlRef.current.trim()) return;
       e.preventDefault();
-      setFields((prev) => ({ ...prev, url: text }));
-      void fetchMetadata(text);
+      void fetchMetadata(url);
     }
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
@@ -108,34 +109,44 @@ export function LogForm({
       setFetchError("Paste a link first.");
       return;
     }
+    // "thecut.com/article/..." and "Read this: https://..." both become a
+    // real URL here; the field shows the fixed-up version.
+    const url = coerceUrl(rawUrl);
+    if (!url) {
+      setFetchError("That doesn't look like a link.");
+      return;
+    }
+    setFields((prev) => ({ ...prev, url }));
     setFetching(true);
     // Advisory, in parallel with the metadata fetch: have you logged this
     // URL before? Warns; never blocks — rereads are real reading.
-    void checkAlreadyLogged(rawUrl.trim()).then(
+    void checkAlreadyLogged(url).then(
       (date) => setPriorLog(date),
       () => {},
     );
     try {
-      const res = await fetch(
-        `/api/metadata?url=${encodeURIComponent(rawUrl.trim())}`,
-      );
+      const res = await fetch(`/api/metadata?url=${encodeURIComponent(url)}`);
       const data = await res.json();
       if (!res.ok) {
         setFetchError(data.error ?? "Could not read that page.");
         return;
       }
+      // Fill what came back; keep anything already typed where it didn't.
       setFields((prev) => ({
         ...prev,
-        title: data.title ?? "",
-        author: data.author ?? "",
-        source: data.source ?? "",
-        image: data.image ?? "",
+        title: data.title ?? prev.title,
+        author: data.author ?? prev.author,
+        source: data.source ?? prev.source,
+        image: data.image ?? prev.image,
         // Best-guess form from the URL, still overridable in the dropdown.
         form: (FORMS as readonly string[]).includes(data.form)
           ? (data.form as Form)
           : prev.form,
       }));
+      // Fetched either way: a page that won't talk to us still opens the
+      // fields, so a paywall is a title to type, not a wall.
       setFetched(true);
+      if (data.error) setFetchError(`${data.error} Add the title and save.`);
     } catch {
       setFetchError("Could not reach the metadata service.");
     } finally {
@@ -153,13 +164,12 @@ export function LogForm({
   async function fromClipboard() {
     setFetchError(null);
     try {
-      const text = (await navigator.clipboard.readText()).trim();
-      if (!/^https?:\/\/\S+$/i.test(text)) {
+      const url = coerceUrl(await navigator.clipboard.readText());
+      if (!url) {
         setFetchError("No link on the clipboard.");
         return;
       }
-      setFields((prev) => ({ ...prev, url: text }));
-      void fetchMetadata(text);
+      void fetchMetadata(url);
     } catch {
       setFetchError("Couldn't read the clipboard. Paste into the field.");
     }
@@ -171,7 +181,7 @@ export function LogForm({
     setSaved(null);
 
     const data = new FormData();
-    data.set("url", fields.url.trim());
+    data.set("url", coerceUrl(fields.url) ?? fields.url.trim());
     data.set("title", fields.title);
     data.set("author", fields.author);
     data.set("source", fields.source);
@@ -207,7 +217,9 @@ export function LogForm({
         <div className="flex gap-2">
           <input
             id="url"
-            type="url"
+            // type="text", not "url": the browser's own validation would
+            // reject "thecut.com/..." on Save, and coerceUrl handles it.
+            type="text"
             inputMode="url"
             autoComplete="off"
             autoFocus={autoFocus}

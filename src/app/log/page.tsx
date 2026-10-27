@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/lib/data/logs";
+import { coerceUrl } from "@/lib/data/url";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LogForm } from "@/components/LogForm";
 import { Bookmarklet } from "@/components/Bookmarklet";
@@ -15,10 +16,10 @@ export const dynamic = "force-dynamic";
 // automatically, so arriving with a URL means: one tap on Save.
 //
 // Share targets don't agree on where the link goes — some put it in `url`,
-// others (Substack's Android share, for one) bury it in `text`. Take either.
+// others (Substack's Android share, for one) bury it in `text`, sometimes
+// with the title in front of it. coerceUrl digs the link out of either.
 function sharedUrl(params: { url?: string; text?: string }): string | undefined {
-  if (params.url?.trim()) return params.url.trim();
-  return params.text?.match(/https?:\/\/\S+/)?.[0];
+  return coerceUrl(params.url ?? "") ?? coerceUrl(params.text ?? "") ?? undefined;
 }
 
 export default async function LogPage({
