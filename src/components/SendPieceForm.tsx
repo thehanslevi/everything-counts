@@ -58,7 +58,7 @@ export function SendPieceForm({
           onClick={() => setOpen(true)}
           className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-accent hover:underline"
         >
-          Send to someone
+          Share
         </button>
         {sentTo && (
           <span className="font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] text-foreground/60">
