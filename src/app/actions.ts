@@ -573,17 +573,27 @@ export async function sendTestPush(): Promise<ActionResult> {
     title: "Push works",
     body: "This came through APNs from Everything Counts.",
     url: "/notifications",
+    diag: true,
   });
   if (!result) return { ok: false, error: "The push function didn't answer." };
   if (result.error) return { ok: false, error: result.error };
   const sent = result.sent ?? 0;
-  return {
-    ok: true,
-    message:
-      sent === 0
-        ? "APNs accepted 0 devices. No token on file, or Apple rejected it."
-        : `APNs accepted ${sent} device${sent === 1 ? "" : "s"}. Check your lock screen.`,
-  };
+  if (sent > 0) {
+    return {
+      ok: true,
+      message: `APNs accepted ${sent} device${sent === 1 ? "" : "s"}. Check your lock screen.`,
+    };
+  }
+  // Nothing landed: say exactly what Apple said and what the secrets look
+  // like (shapes only), so the wrong one can be fixed without guessing.
+  const reasons = result.reasons?.length
+    ? `Apple said: ${[...new Set(result.reasons)].join(", ")}.`
+    : "No reason given.";
+  const d = result.diag;
+  const shapes = d
+    ? ` Key ID ${d.keyId}. Team ID ${d.teamId}. Key ${d.key}. Topic ${d.topic}. Host ${d.host}.`
+    : "";
+  return { ok: false, error: `APNs accepted 0 devices. ${reasons}${shapes}` };
 }
 
 // Store (or refresh) an APNs device token for the signed-in user. Called from

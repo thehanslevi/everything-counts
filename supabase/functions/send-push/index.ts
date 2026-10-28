@@ -51,19 +51,30 @@ function pemToDer(pem: string): Uint8Array {
   return der;
 }
 
-// A fresh APNs provider token. Cheap to mint; regenerated per invocation given
-// the current volume (Apple allows one refresh per 20 minutes, not required).
-async function apnsJwt(): Promise<string> {
-  const key = await crypto.subtle.importKey(
+async function importApnsKey(): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
     "pkcs8",
     pemToDer(APNS_KEY!),
     { name: "ECDSA", namedCurve: "P-256" },
     false,
     ["sign"],
   );
-  const header = b64urlStr(JSON.stringify({ alg: "ES256", kid: APNS_KEY_ID }));
+}
+
+// A fresh APNs provider token. Cheap to mint; regenerated per invocation given
+// the current volume (Apple allows one refresh per 20 minutes, not required).
+// Key ID and Team ID are trimmed: a secret pasted with a trailing newline is
+// the single most common reason Apple answers InvalidProviderToken.
+async function apnsJwt(): Promise<string> {
+  const key = await importApnsKey();
+  const header = b64urlStr(
+    JSON.stringify({ alg: "ES256", kid: APNS_KEY_ID!.trim() }),
+  );
   const payload = b64urlStr(
-    JSON.stringify({ iss: APNS_TEAM_ID, iat: Math.floor(Date.now() / 1000) }),
+    JSON.stringify({
+      iss: APNS_TEAM_ID!.trim(),
+      iat: Math.floor(Date.now() / 1000),
+    }),
   );
   const signingInput = `${header}.${payload}`;
   const sig = await crypto.subtle.sign(
@@ -72,6 +83,14 @@ async function apnsJwt(): Promise<string> {
     enc.encode(signingInput),
   );
   return `${signingInput}.${b64url(new Uint8Array(sig))}`;
+}
+
+// Shape of a secret, never its value: enough to spot a wrong-length paste
+// or stray whitespace from the founder's test button.
+function shape(v: string | undefined): string {
+  if (v === undefined || v === "") return "missing";
+  const ws = v !== v.trim() ? ", has surrounding whitespace" : "";
+  return `${v.trim().length} chars${ws}`;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -98,14 +117,34 @@ Deno.serve(async (req) => {
     title?: string;
     body?: string;
     url?: string;
+    diag?: boolean;
   };
   try {
     payloadIn = await req.json();
   } catch {
     return json({ error: "bad-json" }, 400);
   }
-  const { recipientUserId, title, body, url } = payloadIn;
+  const { recipientUserId, title, body, url, diag } = payloadIn;
   if (!recipientUserId || !title) return json({ error: "bad-request" }, 400);
+
+  // Diagnostics, on request only: shapes and parse status, no values.
+  let diagOut: Record<string, string> | undefined;
+  if (diag) {
+    let keyParses = "does not parse as a P-256 private key";
+    try {
+      await importApnsKey();
+      keyParses = "parses";
+    } catch {
+      // reported below
+    }
+    diagOut = {
+      keyId: shape(APNS_KEY_ID),
+      teamId: shape(APNS_TEAM_ID),
+      key: `${keyParses}, ${APNS_KEY.includes("BEGIN PRIVATE KEY") ? "PEM armor present" : "no PEM armor"}`,
+      topic: APNS_TOPIC,
+      host: APNS_HOST,
+    };
+  }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: tokens } = await supabase
@@ -113,9 +152,21 @@ Deno.serve(async (req) => {
     .select("token")
     .eq("user_id", recipientUserId);
 
-  if (!tokens || tokens.length === 0) return json({ ok: true, sent: 0 });
+  if (!tokens || tokens.length === 0) {
+    return json({ ok: true, sent: 0, reasons: ["no device tokens"], diag: diagOut });
+  }
 
-  const jwt = await apnsJwt();
+  let jwt: string;
+  try {
+    jwt = await apnsJwt();
+  } catch (err) {
+    return json({
+      ok: false,
+      sent: 0,
+      reasons: [`could not sign provider token: ${String(err)}`],
+      diag: diagOut,
+    });
+  }
   const apnsBody = JSON.stringify({
     aps: { alert: { title, body: body ?? "" }, sound: "default" },
     url: url ?? null,
@@ -123,6 +174,7 @@ Deno.serve(async (req) => {
 
   let sent = 0;
   const stale: string[] = [];
+  const reasons: string[] = [];
   await Promise.all(
     tokens.map(async ({ token }) => {
       const res = await fetch(`https://${APNS_HOST}/3/device/${token}`, {
@@ -140,6 +192,13 @@ Deno.serve(async (req) => {
         return;
       }
       const txt = await res.text();
+      let reason = `HTTP ${res.status}`;
+      try {
+        reason = JSON.parse(txt).reason ?? reason;
+      } catch {
+        // non-JSON body; keep the status
+      }
+      reasons.push(reason);
       // 410 Gone, or a body naming a dead token, means prune it.
       if (
         res.status === 410 ||
@@ -156,5 +215,5 @@ Deno.serve(async (req) => {
     await supabase.from("device_tokens").delete().in("token", stale);
   }
 
-  return json({ ok: true, sent, pruned: stale.length });
+  return json({ ok: true, sent, pruned: stale.length, reasons, diag: diagOut });
 });

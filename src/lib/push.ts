@@ -16,14 +16,20 @@ export interface Notification {
   body?: string;
   /** In-app path to open on tap, e.g. "/u/handle". */
   url?: string;
+  /** Ask the function to report secret shapes (never values). Test button only. */
+  diag?: boolean;
 }
 
 // Deliver one push. Swallows every failure. Returns the edge function's
 // summary ({ ok, sent }) when it answered, null otherwise — callers that
 // care (the test button) can report it; everything else ignores it.
-export async function notify(
-  n: Notification,
-): Promise<{ ok?: boolean; sent?: number; error?: string } | null> {
+export async function notify(n: Notification): Promise<{
+  ok?: boolean;
+  sent?: number;
+  error?: string;
+  reasons?: string[];
+  diag?: Record<string, string>;
+} | null> {
   if (!PUSH_SECRET || !SUPABASE_URL || !ANON_KEY || !n.recipientUserId) {
     return null;
   }
