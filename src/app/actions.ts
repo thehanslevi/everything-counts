@@ -473,7 +473,9 @@ async function myHandle(): Promise<string | null> {
   return data?.handle ?? null;
 }
 
-// A line back on someone's log. The log's owner hears about it.
+// A line back on someone's log. The log's owner hears about it, and so does
+// anyone else who already replied there — a push goes only to people with a
+// stake in that log, never to followers at large.
 export async function replyToLog(formData: FormData): Promise<ActionResult> {
   const logId = (formData.get("logId") as string | null) ?? "";
   const body = (formData.get("body") as string | null)?.trim() ?? "";
@@ -484,16 +486,29 @@ export async function replyToLog(formData: FormData): Promise<ActionResult> {
   }
 
   try {
-    const { ownerId, workId, title } = await addReply(logId, body);
+    const { ownerId, coReplierIds, workId, title } = await addReply(
+      logId,
+      body,
+    );
     revalidatePath(`/work/${workId}`);
     const me = await myHandle();
     if (me) {
-      await notify({
-        recipientUserId: ownerId,
-        title: `@${me} replied to your log of “${title}”`,
-        body,
-        url: `/work/${workId}`,
-      });
+      await Promise.all([
+        notify({
+          recipientUserId: ownerId,
+          title: `@${me} replied to your log of “${title}”`,
+          body,
+          url: `/work/${workId}`,
+        }),
+        ...coReplierIds.map((id) =>
+          notify({
+            recipientUserId: id,
+            title: `@${me} also replied on “${title}”`,
+            body,
+            url: `/work/${workId}`,
+          }),
+        ),
+      ]);
     }
     return { ok: true };
   } catch (err) {

@@ -71,7 +71,10 @@ export default async function NotificationsPage() {
 function NotificationRow({ n }: { n: AppNotification }) {
   const actorName = n.actor ? `@${n.actor.handle}` : "Someone";
   const isWork =
-    (n.type === "log" || n.type === "coread" || n.type === "reply") &&
+    (n.type === "log" ||
+      n.type === "coread" ||
+      n.type === "reply" ||
+      n.type === "reply_also") &&
     n.workId;
   // A sent piece opens straight into logging it; everything else opens the
   // work, or the person.
@@ -126,6 +129,15 @@ function NotificationRow({ n }: { n: AppNotification }) {
         {n.type === "reply" && (
           <>
             replied to your log of{" "}
+            <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
+              {n.logTitle ?? "a piece"}
+            </span>
+            {n.body ? <>: “{n.body}”</> : "."}
+          </>
+        )}
+        {n.type === "reply_also" && (
+          <>
+            also replied on{" "}
             <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
               {n.logTitle ?? "a piece"}
             </span>

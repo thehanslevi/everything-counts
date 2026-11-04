@@ -412,22 +412,31 @@ export async function getRepliesForLogs(
 
 // One line back on someone's log. RLS enforces the rest (shared log, not
 // your own, no block either way); this maps its refusals to plain words.
-// Returns what the caller needs to tell the log's owner.
+// Returns who should hear about it: the log's owner, and anyone else who
+// already replied there (the new replier excepted).
 export async function addReply(
   logId: string,
   body: string,
-): Promise<{ ownerId: string; workId: string; title: string }> {
+): Promise<{
+  ownerId: string;
+  coReplierIds: string[];
+  workId: string;
+  title: string;
+}> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Sign in to reply.");
 
-  const { data: log } = await supabase
-    .from("logs")
-    .select("user_id, work_id, title")
-    .eq("id", logId)
-    .maybeSingle();
+  const [{ data: log }, { data: prior }] = await Promise.all([
+    supabase
+      .from("logs")
+      .select("user_id, work_id, title")
+      .eq("id", logId)
+      .maybeSingle(),
+    supabase.from("replies").select("user_id").eq("log_id", logId),
+  ]);
   if (!log) throw new Error("That log is gone.");
   if (log.user_id === user.id) throw new Error("That's your own log.");
 
@@ -439,7 +448,20 @@ export async function addReply(
     if (error.code === "42501") throw new Error("You can't reply to this log.");
     throw new Error(error.message);
   }
-  return { ownerId: log.user_id, workId: log.work_id, title: log.title };
+
+  const coReplierIds = [
+    ...new Set(
+      (prior ?? [])
+        .map((r) => r.user_id)
+        .filter((id) => id !== user.id && id !== log.user_id),
+    ),
+  ];
+  return {
+    ownerId: log.user_id,
+    coReplierIds,
+    workId: log.work_id,
+    title: log.title,
+  };
 }
 
 // Remove a reply: yours, or any on your own log. RLS decides which.
