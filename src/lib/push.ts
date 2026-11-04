@@ -50,8 +50,10 @@ export async function notify(n: Notification): Promise<{
   }
 }
 
-// Someone you follow logged a piece → push it to every follower. Volume is
-// tiny at present; if follower counts grow, batch this into one edge call.
+// A new log pushes only to people with a stake in that piece: anyone who has
+// already logged the same work. Followers see it in their feed and bell, but
+// their phone stays quiet for it — a push is for "someone read what you
+// read," not "someone you follow did something."
 export async function notifyNewLog(log: {
   userId: string;
   title: string;
@@ -67,18 +69,20 @@ export async function notifyNewLog(log: {
     .maybeSingle();
   if (!me) return;
 
-  const { data: followers } = await supabase
-    .from("follows")
-    .select("follower_id")
-    .eq("followee_id", log.userId);
-  if (!followers?.length) return;
+  const { data: coReaders } = await supabase
+    .from("logs")
+    .select("user_id")
+    .eq("work_id", log.workId)
+    .eq("shared", true)
+    .neq("user_id", log.userId);
+  const recipients = [...new Set((coReaders ?? []).map((r) => r.user_id))];
+  if (recipients.length === 0) return;
 
   await Promise.all(
-    followers.map((f) =>
+    recipients.map((id) =>
       notify({
-        recipientUserId: f.follower_id,
-        title: `@${me.handle} logged something`,
-        body: log.title,
+        recipientUserId: id,
+        title: `@${me.handle} also read “${log.title}”`,
         url: `/work/${log.workId}`,
       }),
     ),
