@@ -719,8 +719,8 @@ export async function sendTestWeekly(): Promise<ActionResult> {
     typeof result.skipped === "object" ? Object.keys(result.skipped).join(", ") : "";
   return {
     ok: false,
-    error: reasons === "nothing-new"
-      ? "Nothing to send: no one else has logged anything in the last 60 days."
+    error: reasons === "nothing-to-send"
+      ? "Nothing to send: it needs something new, from at least two people's reading."
       : `Nothing sent${reasons ? ` (${reasons})` : ""}.`,
   };
 }

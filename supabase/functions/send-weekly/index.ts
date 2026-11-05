@@ -9,11 +9,16 @@
 // the service role has: everyone's email address, and everyone's email
 // setting (each person can read only their own).
 //
-// Rules, in one place:
+// Rules, in one place (the choosing itself is in digest.ts):
 //  - on by default; `email_prefs.weekly = false` turns it off;
-//  - one email covers everything logged since that person's last one. The
-//    first reaches back up to 60 days, so it works as a catch-up;
-//  - nothing new for someone means no email for them, not an empty one;
+//  - an email goes out only when something was logged since that person's
+//    last one. For their first, the whole record counts as new, so it works
+//    as a catch-up. After that, nothing new means no email, not an empty one;
+//  - it is never one person's reading: at least two people's logs, nobody
+//    more than half, older pieces filling in beside the new when one person
+//    logged everything recent. If only one person's reading is left to show,
+//    nothing is sent;
+//  - a piece is never emailed to the same person twice;
 //  - it will not send to the same person twice inside six days;
 //  - never their own logs, nothing they already logged, nothing across a block.
 //
@@ -26,7 +31,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type DigestLog, pickPieces } from "./digest.ts";
-import { renderWeekly } from "./render.ts";
+import { isLeadImage, renderWeekly } from "./render.ts";
 
 const PUSH_SECRET = Deno.env.get("PUSH_SECRET");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -43,7 +48,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const DAY = 24 * 60 * 60 * 1000;
-const CATCH_UP_DAYS = 60;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -82,26 +86,26 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const earliest = new Date(now.getTime() - CATCH_UP_DAYS * DAY);
 
   let prefsQuery = supabase
     .from("email_prefs")
-    .select("user_id, weekly, token, last_weekly_sent");
+    .select("user_id, weekly, token, last_weekly_sent, sent_work_ids");
   if (body.onlyUserId) prefsQuery = prefsQuery.eq("user_id", body.onlyUserId);
   if (!force) prefsQuery = prefsQuery.eq("weekly", true);
 
   const [prefsRes, logsRes, readRes, followsRes, blocksRes, profilesRes, usersRes] =
     await Promise.all([
       prefsQuery,
+      // The whole shared record, not just the recent stretch: older pieces
+      // from other people are what keep an email from being one voice.
       supabase
         .from("logs")
         .select(
-          "user_id, work_id, title, author, source, form, created_at, profiles!logs_user_id_fkey(handle)",
+          "user_id, work_id, title, author, source, form, image, created_at, profiles!logs_user_id_fkey(handle)",
         )
         .eq("shared", true)
-        .gte("created_at", earliest.toISOString())
         .order("created_at", { ascending: false })
-        .limit(2000),
+        .limit(5000),
       supabase.from("logs").select("user_id, work_id").limit(20000),
       supabase.from("follows").select("follower_id, followee_id").limit(20000),
       supabase.from("blocks").select("blocker_id, blocked_id").limit(20000),
@@ -129,6 +133,36 @@ Deno.serve(async (req) => {
     (profilesRes.data ?? []).map((p) => [p.id as string, p.handle as string]),
   );
 
+  // A lead image goes in only if it is one (see isLeadImage) and actually
+  // loads, answering with an image. A broken picture in an email is worse
+  // than none. Checked once per URL per run; the body is never downloaded.
+  const imageChecks = new Map<string, Promise<boolean>>();
+  const imageLoads = (url: string): Promise<boolean> => {
+    let check = imageChecks.get(url);
+    if (!check) {
+      check = (async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        try {
+          if (!isLeadImage(url)) return false;
+          const res = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: "image/*" },
+          });
+          const type = res.headers.get("content-type") ?? "";
+          controller.abort();
+          return res.ok && type.startsWith("image/");
+        } catch {
+          return false;
+        } finally {
+          clearTimeout(timeout);
+        }
+      })();
+      imageChecks.set(url, check);
+    }
+    return check;
+  };
+
   const tally: Record<string, number> = {};
   const count = (reason: string) => {
     tally[reason] = (tally[reason] ?? 0) + 1;
@@ -153,9 +187,9 @@ Deno.serve(async (req) => {
       count("already-sent");
       continue;
     }
-    // Everything since their last email; the first time (or a test), the
-    // catch-up window.
-    const since = !force && last && last > earliest ? last : earliest;
+    // New means logged since their last email. The first time (or for a
+    // test) there is no last email, so everything is new to them.
+    const since = !force && last ? last : new Date(0);
 
     const followed = new Set(
       (followsRes.data ?? [])
@@ -171,23 +205,27 @@ Deno.serve(async (req) => {
           : []
       ),
     );
-    const alreadyRead = new Set(
-      (readRes.data ?? [])
+    // What they have no use for: pieces they logged themselves, and pieces
+    // an earlier email already showed them.
+    const alreadySent = (pref.sent_work_ids ?? []) as string[];
+    const exclude = new Set<string>([
+      ...(readRes.data ?? [])
         .filter((l) => l.user_id === userId)
         .map((l) => l.work_id as string),
-    );
+      ...alreadySent,
+    ]);
 
-    const pieces = pickPieces(
-      userId,
-      logs.filter((l) => new Date(l.created_at) >= since),
-      followed,
-      hidden,
-      alreadyRead,
-    );
+    const pieces = pickPieces(userId, logs, followed, hidden, exclude, since);
     if (pieces.length === 0) {
-      count("nothing-new");
+      // Nothing new since their last one, or only one person's reading to show.
+      count("nothing-to-send");
       continue;
     }
+    await Promise.all(
+      pieces.map(async (piece) => {
+        if (piece.image && !(await imageLoads(piece.image))) piece.image = null;
+      }),
+    );
 
     const { subject, html, text } = renderWeekly({
       pieces,
@@ -195,7 +233,6 @@ Deno.serve(async (req) => {
       unsubscribeUrl: `${SITE}/unsubscribe?t=${pref.token}`,
       profileUrl: `${SITE}/u/${handle}`,
       postalAddress: MAIL_ADDRESS,
-      since,
       now,
     });
 
@@ -229,9 +266,15 @@ Deno.serve(async (req) => {
     if (res.ok) {
       sent++;
       if (!force) {
+        // Remember when, and what, so the next one starts from here and
+        // never repeats a piece. (A test send leaves no trace.)
         await supabase
           .from("email_prefs")
-          .update({ last_weekly_sent: today })
+          .update({
+            last_weekly_sent: today,
+            sent_work_ids: [...alreadySent, ...pieces.map((p) => p.workId)]
+              .slice(-1000),
+          })
           .eq("user_id", userId);
       }
     } else {
