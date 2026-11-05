@@ -38,8 +38,8 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const WEEKLY_LIVE = Deno.env.get("WEEKLY_LIVE") === "true";
 const MAIL_FROM = Deno.env.get("MAIL_FROM") ??
   "Everything Counts <weekly@everythingcountsapp.com>";
-// A postal address for the footer, if one is set. US law expects one on
-// promotional mail; left out until the owner provides it.
+// An optional postal address line for the footer. Unset: the owner's call
+// is that this email is not promotional and doesn't need one.
 const MAIL_ADDRESS = Deno.env.get("MAIL_ADDRESS") ?? "";
 const SITE = (Deno.env.get("PUBLIC_SITE_URL") ?? "https://everythingcountsapp.com")
   .replace(/\/+$/, "");
