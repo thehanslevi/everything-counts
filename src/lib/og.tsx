@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
 import { markDataUri } from "@/lib/mark";
 import { formatEstTime, tally } from "@/lib/data/stats";
 import type { Log } from "@/lib/data/types";
@@ -518,4 +519,209 @@ export async function periodPoster({
       headers: { "cache-control": "public, max-age=300" },
     },
   );
+}
+
+// --- The link preview for a piece ------------------------------------------------
+
+// What a messaging app shows when someone sends a piece. The app prints the
+// title under the image on its own, so the card never repeats it: the left
+// side is the piece's own lead image (or, without one, where it was
+// published, in big type), the right side is the seal, the form, and how
+// many people logged it. Byline in the band.
+
+const PHOTO = { width: 794, height: 552 };
+
+// The piece's lead image, cropped to the photo area and re-encoded as JPEG.
+// Lead images arrive as anything (webp, avif, oversized PNGs) and the
+// renderer draws only JPEG and PNG, so sharp normalizes them; "attention"
+// keeps the most interesting region when the crop has to lose something.
+// Null on any failure: the card falls back to type rather than break.
+async function leadImageDataUri(url: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    // Public hosts only: this URL came from a page's metadata or a form
+    // field, and it is fetched from the server.
+    const host = u.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal") ||
+      host.includes(":") ||
+      /^[\d.]+$/.test(host)
+    ) {
+      return null;
+    }
+    const res = await fetch(u, {
+      signal: controller.signal,
+      headers: { Accept: "image/jpeg,image/png,image/webp,image/*;q=0.8" },
+    });
+    if (!res.ok) return null;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.byteLength === 0 || bytes.byteLength > 8_000_000) return null;
+    const jpeg = await sharp(bytes)
+      .resize(PHOTO.width, PHOTO.height, { fit: "cover", position: "attention" })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function workCard({
+  form,
+  loggerCount,
+  source,
+  author,
+  image,
+}: {
+  form: string;
+  loggerCount: number;
+  source: string | null;
+  author: string | null;
+  image: string | null;
+}) {
+  const [fonts, photo] = await Promise.all([
+    loadPosterFonts(),
+    image ? leadImageDataUri(image) : Promise.resolve(null),
+  ]);
+
+  const band =
+    [author, source].filter(Boolean).join(" · ") ||
+    "everything-counts.vercel.app";
+  const big = source ?? "Everything Counts";
+  const bigSize =
+    big.length <= 10 ? 124 : big.length <= 18 ? 94 : big.length <= 30 ? 68 : 52;
+
+  const rendered = new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          background: FIELD,
+          color: INK,
+          fontFamily: fonts ? FACE : undefined,
+        }}
+      >
+        <div style={{ display: "flex", height: PHOTO.height }}>
+          <div
+            style={{
+              display: "flex",
+              width: PHOTO.width + 6,
+              height: PHOTO.height,
+              borderRight: `6px solid ${INK}`,
+              overflow: "hidden",
+            }}
+          >
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photo}
+                width={PHOTO.width}
+                height={PHOTO.height}
+                alt=""
+              />
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 56px",
+                  fontSize: bigSize,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  lineHeight: 1.02,
+                  wordBreak: "break-word",
+                }}
+              >
+                {clip(big, 60)}
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: 1,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={markDataUri()} width={210} height={210} alt="" />
+            <div
+              style={{
+                display: "flex",
+                marginTop: 30,
+                background: FORM_HEX[form] ?? INK,
+                color: "#ffffff",
+                border: `5px solid ${INK}`,
+                padding: "10px 24px",
+                fontSize: 28,
+                fontWeight: 700,
+                letterSpacing: 5,
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {form}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                marginTop: 22,
+                fontSize: 21,
+                fontWeight: 700,
+                letterSpacing: 4,
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Logged by {loggerCount} {loggerCount === 1 ? "person" : "people"}
+            </div>
+          </div>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flex: 1,
+            background: INK,
+            color: FIELD,
+            padding: "0 56px",
+            fontSize: 25,
+            fontWeight: 700,
+            letterSpacing: 4,
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {clip(band, 56)}
+        </div>
+      </div>
+    ),
+    { ...OG_SIZE, ...(fonts ? { fonts } : {}) },
+  );
+
+  // The renderer only emits PNG, and a PNG with a photograph in it runs past
+  // a megabyte — heavy enough that some messaging apps skip the preview.
+  // Re-encode as JPEG (full chroma, so red type on the yellow field stays
+  // crisp). An hour's cache: the logger count on the card moves.
+  const jpeg = await sharp(Buffer.from(await rendered.arrayBuffer()))
+    .jpeg({ quality: 88, chromaSubsampling: "4:4:4" })
+    .toBuffer();
+  return new Response(new Uint8Array(jpeg), {
+    headers: {
+      "content-type": "image/jpeg",
+      "cache-control": "public, max-age=3600",
+    },
+  });
 }
