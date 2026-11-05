@@ -731,3 +731,83 @@ export async function workCard({
   }
   return new Response(await render(null).arrayBuffer(), { headers });
 }
+
+// --- The masthead, as an image, for email -------------------------------------
+
+// Mail clients can't be trusted with web fonts or outlined type, so the
+// email's header is a picture of the app's own: the wordmark (solid over
+// outlined) with the seal beside it on the yellow field, the tagline band,
+// and the three-color rule. Same face, same proportions as SiteHeader.
+// Drawn at twice the size it is shown, for sharp screens.
+export const MASTHEAD_SIZE = { width: 1200, height: 352 };
+
+export async function emailMasthead() {
+  const fonts = await loadPosterFonts();
+  const type = {
+    display: "flex",
+    fontSize: 112,
+    fontWeight: 900,
+    textTransform: "uppercase" as const,
+    letterSpacing: -2,
+    lineHeight: 0.9,
+  };
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          background: FIELD,
+          fontFamily: fonts ? FACE : undefined,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 48px",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ ...type, color: INK }}>Everything</div>
+            {/* Outlined, as in the app: field-colored type with an ink edge. */}
+            <div
+              style={{ ...type, color: FIELD, WebkitTextStroke: `7px ${INK}` }}
+            >
+              Counts
+            </div>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={markDataUri()} width={196} height={196} alt="" />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: 68,
+            background: INK,
+            color: FIELD,
+            padding: "0 48px",
+            fontSize: 25,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: 5,
+          }}
+        >
+          For reading that goes beyond books.
+        </div>
+        {/* The Yokoo clash as a base rule: vermilion, magenta, blue. */}
+        <div style={{ display: "flex", height: 16 }}>
+          <div style={{ display: "flex", flex: 1, background: RED }} />
+          <div style={{ display: "flex", flex: 1, background: MAG }} />
+          <div style={{ display: "flex", flex: 1, background: BLUE }} />
+        </div>
+      </div>
+    ),
+    { ...MASTHEAD_SIZE, ...(fonts ? { fonts } : {}) },
+  );
+}

@@ -720,7 +720,7 @@ export async function sendTestWeekly(): Promise<ActionResult> {
   return {
     ok: false,
     error: reasons === "nothing-to-send"
-      ? "Nothing to send: it needs something new, from at least two people's reading."
+      ? "Nothing to send: there isn't reading from two different people to show."
       : `Nothing sent${reasons ? ` (${reasons})` : ""}.`,
   };
 }

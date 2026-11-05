@@ -14,10 +14,9 @@
 //  - an email goes out only when something was logged since that person's
 //    last one. For their first, the whole record counts as new, so it works
 //    as a catch-up. After that, nothing new means no email, not an empty one;
-//  - it is never one person's reading: at least two people's logs, nobody
-//    more than half, older pieces filling in beside the new when one person
-//    logged everything recent. If only one person's reading is left to show,
-//    nothing is sent;
+//  - it is recent and from several people (RULES in digest.ts): six pieces
+//    at most, no more than two from anyone, at least three people, nothing
+//    logged more than a month ago. A week that can't meet that sends nothing;
 //  - a piece is never emailed to the same person twice;
 //  - it will not send to the same person twice inside six days;
 //  - never their own logs, nothing they already logged, nothing across a block.
@@ -30,7 +29,7 @@
 //    deciding to email every member are separate decisions.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { type DigestLog, pickPieces } from "./digest.ts";
+import { type DigestLog, pickPieces, RULES, TEST_RULES } from "./digest.ts";
 import { isLeadImage, renderWeekly } from "./render.ts";
 
 const PUSH_SECRET = Deno.env.get("PUSH_SECRET");
@@ -96,12 +95,12 @@ Deno.serve(async (req) => {
   const [prefsRes, logsRes, readRes, followsRes, blocksRes, profilesRes, usersRes] =
     await Promise.all([
       prefsQuery,
-      // The whole shared record, not just the recent stretch: older pieces
-      // from other people are what keep an email from being one voice.
+      // The shared record, newest first. digest.ts decides how far back
+      // an email may reach.
       supabase
         .from("logs")
         .select(
-          "user_id, work_id, title, author, source, form, image, created_at, profiles!logs_user_id_fkey(handle)",
+          "user_id, work_id, title, author, source, form, image, take, created_at, profiles!logs_user_id_fkey(handle)",
         )
         .eq("shared", true)
         .order("created_at", { ascending: false })
@@ -215,9 +214,19 @@ Deno.serve(async (req) => {
       ...alreadySent,
     ]);
 
-    const pieces = pickPieces(userId, logs, followed, hidden, exclude, since);
+    const pieces = pickPieces(
+      userId,
+      logs,
+      followed,
+      hidden,
+      exclude,
+      since,
+      now,
+      force ? TEST_RULES : RULES,
+    );
     if (pieces.length === 0) {
-      // Nothing new since their last one, or only one person's reading to show.
+      // Nothing new since their last one, or not enough recent reading from
+      // enough different people.
       count("nothing-to-send");
       continue;
     }
@@ -227,14 +236,19 @@ Deno.serve(async (req) => {
       }),
     );
 
-    const { subject, html, text } = renderWeekly({
+    const rendered = renderWeekly({
       pieces,
       site: SITE,
+      mastheadUrl: `${SITE}/email/masthead.png`,
       unsubscribeUrl: `${SITE}/unsubscribe?t=${pref.token}`,
       profileUrl: `${SITE}/u/${handle}`,
       postalAddress: MAIL_ADDRESS,
       now,
     });
+    const { html, text } = rendered;
+    // A test send says so, since it shows whatever the record has rather
+    // than what a real one would be held to.
+    const subject = force ? `Test: ${rendered.subject}` : rendered.subject;
 
     if (dryRun) {
       count("would-send");

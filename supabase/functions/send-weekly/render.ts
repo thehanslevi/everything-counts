@@ -1,8 +1,14 @@
 // The weekly email, as HTML and as plain text. Pure: no Deno, no network.
 //
 // Email clients are a decade behind browsers, so this is tables and inline
-// styles on purpose. It carries the app's look as far as mail allows: the
-// taxi-yellow masthead, ink frames, a color band per form.
+// styles on purpose. It carries the app's look as far as mail allows. The
+// header is a picture of the app's own (mail can't draw the typeface or the
+// outlined wordmark). The cards follow the app's card: picture, then the
+// form's label in its color with the date opposite, then title, byline, and
+// the take in serif when there is one.
+//
+// It is built to be short. One piece leads with its picture at full width;
+// the rest are compact rows with a thumbnail.
 
 import { type Piece, voices } from "./digest.ts";
 
@@ -111,9 +117,16 @@ const SENT_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+// A take can run to a thousand characters; an email shows its opening.
+function clipTake(take: string): string {
+  const t = take.replace(/\s+/g, " ").trim();
+  return t.length > 240 ? `${t.slice(0, 239).trimEnd()}…` : t;
+}
+
 export function renderWeekly({
   pieces,
   site,
+  mastheadUrl,
   unsubscribeUrl,
   profileUrl,
   postalAddress,
@@ -121,6 +134,7 @@ export function renderWeekly({
 }: {
   pieces: Piece[];
   site: string; // origin for piece links, no trailing slash
+  mastheadUrl: string; // the header image (see /email/masthead.png)
   unsubscribeUrl: string;
   profileUrl: string;
   postalAddress: string; // "" to leave it out
@@ -132,7 +146,11 @@ export function renderWeekly({
     title: tidy(p.title),
     author: p.author ? tidy(p.author) : null,
     source: p.source ? tidy(p.source) : null,
+    take: p.take ? clipTake(tidy(p.take)) : null,
   }));
+  // The first piece that has a picture leads, at full width.
+  const lead = pieces.findIndex((p) => p.image);
+  if (lead > 0) pieces = [pieces[lead], ...pieces.filter((_, i) => i !== lead)];
   const n = pieces.length;
   // An email can sit this week's pieces beside older ones (see digest.ts), so
   // it is dated by the day it goes out, and each card says when it was logged.
@@ -144,29 +162,72 @@ export function renderWeekly({
     .map((p) => p.title)
     .join(" · ");
 
+  // The strip every card opens with, as in the app: the form's label in its
+  // color, the date it was logged opposite.
+  const banner = (p: Piece, ruled: boolean) => `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"${
+              ruled ? ` style="border-bottom:3px solid ${INK};"` : ""
+            }><tr>
+              <td style="font-size:0;line-height:0;"><span style="display:inline-block;background:${FORM_HEX[p.form] ?? INK};${
+                ruled ? `border-right:3px solid ${INK};` : ""
+              }padding:${ruled ? "9px 12px" : "5px 8px"};font:700 10px/1 ${SANS};letter-spacing:2px;text-transform:uppercase;color:#ffffff;">${esc(p.form)}</span></td>
+              <td align="right" style="padding-right:${ruled ? 12 : 0}px;font:700 10px/1 ${SANS};letter-spacing:1.5px;text-transform:uppercase;color:#6b6557;white-space:nowrap;">${esc(DAY_FMT.format(new Date(p.loggedAt)))}</td>
+            </tr></table>`;
+
+  // Under the title: byline, who logged it, and their take if they wrote
+  // one (named when more than one person logged the piece, so it is clear
+  // whose words they are).
+  const details = (p: Piece) => {
+    const byline = [p.author, p.source].filter(Boolean).join(" · ");
+    const whose = p.take && p.readers.length > 1 && p.takeBy
+      ? `<span style="font:700 11px ${SANS};letter-spacing:1px;text-transform:uppercase;color:#5c5548;">@${esc(p.takeBy)}</span> `
+      : "";
+    return `${
+      byline
+        ? `<div style="margin-top:6px;font:700 11px/1.4 ${SANS};letter-spacing:1.5px;text-transform:uppercase;color:#5c5548;">${esc(byline)}</div>`
+        : ""
+    }
+                <div style="margin-top:6px;font:400 13px/1.4 Georgia, 'Times New Roman', serif;color:#4a4439;">Logged by ${esc(readersLine(p.readers))}</div>${
+      p.take
+        ? `
+                <div style="margin-top:10px;padding-left:10px;border-left:3px solid ${INK};font:400 14px/1.45 Georgia, 'Times New Roman', serif;color:${INK};">${whose}&ldquo;${esc(p.take)}&rdquo;</div>`
+        : ""
+    }`;
+  };
+
   const cards = pieces
-    .map((p) => {
+    .map((p, i) => {
       const url = `${site}/work/${p.workId}`;
-      const byline = [p.author, p.source].filter(Boolean).join(" · ");
-      // The lead image, full width above the text, linked like the title.
-      // Natural proportions, capped in height where the client can crop.
-      const image = p.image
-        ? `<tr><td colspan="2" style="border-bottom:3px solid ${INK};font-size:0;line-height:0;"><a href="${esc(url)}"><img src="${esc(p.image)}" width="594" alt="" style="display:block;width:100%;height:auto;max-height:260px;object-fit:cover;border:0;"></a></td></tr>`
+
+      // The lead: its picture across the full width, then the strip, then text.
+      if (i === 0 && p.image) {
+        return `
+        <tr><td style="padding:0 0 10px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:3px solid ${INK};background:${CARD};">
+            <tr><td style="border-bottom:3px solid ${INK};font-size:0;line-height:0;"><a href="${esc(url)}"><img src="${esc(p.image)}" width="594" alt="" style="display:block;width:100%;height:auto;max-height:260px;object-fit:cover;border:0;"></a></td></tr>
+            <tr><td>${banner(p, true)}</td></tr>
+            <tr><td style="padding:14px 16px 16px;">
+                <a href="${esc(url)}" style="font:900 19px/1.15 ${SANS};color:${INK};text-decoration:none;text-transform:uppercase;">${esc(p.title)}</a>
+                ${details(p)}
+            </td></tr>
+          </table>
+        </td></tr>`;
+      }
+
+      // Everything else: a compact row. A thumbnail at the left when the
+      // piece has a picture (its own proportions; nothing here depends on a
+      // mail client being able to crop), then the strip and the text.
+      const thumb = p.image
+        ? `<td width="112" valign="top" style="padding:12px 0 12px 12px;font-size:0;line-height:0;"><a href="${esc(url)}"><img src="${esc(p.image)}" width="106" alt="" style="display:block;width:106px;height:auto;border:3px solid ${INK};"></a></td>`
         : "";
       return `
-        <tr><td style="padding:0 0 12px 0;">
+        <tr><td style="padding:0 0 10px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:3px solid ${INK};background:${CARD};">
-            ${image}
             <tr>
-              <td width="86" align="center" valign="middle" style="background:${FORM_HEX[p.form] ?? INK};border-right:3px solid ${INK};padding:0 6px;font:700 10px ${SANS};letter-spacing:2px;text-transform:uppercase;color:#ffffff;">${esc(p.form)}</td>
-              <td style="padding:14px 16px;">
-                <a href="${esc(url)}" style="font:900 17px/1.2 ${SANS};color:${INK};text-decoration:none;text-transform:uppercase;">${esc(p.title)}</a>
-                ${
-                  byline
-                    ? `<div style="margin-top:6px;font:700 11px/1.4 ${SANS};letter-spacing:1.5px;text-transform:uppercase;color:#5c5548;">${esc(byline)}</div>`
-                    : ""
-                }
-                <div style="margin-top:6px;font:400 13px/1.4 Georgia, 'Times New Roman', serif;color:#4a4439;">Logged by ${esc(readersLine(p.readers))} &middot; ${esc(DAY_FMT.format(new Date(p.loggedAt)))}</div>
+              ${thumb}
+              <td valign="top" style="padding:12px 14px 14px;">${banner(p, false)}
+                <div style="margin-top:9px;"><a href="${esc(url)}" style="font:900 15px/1.2 ${SANS};color:${INK};text-decoration:none;text-transform:uppercase;">${esc(p.title)}</a></div>
+                ${details(p)}
               </td>
             </tr>
           </table>
@@ -186,11 +247,10 @@ export function renderWeekly({
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};">
   <tr><td align="center" style="padding:24px 12px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
-      <tr><td style="background:${FIELD};border:3px solid ${INK};border-bottom:0;padding:26px 24px 22px;">
-        <a href="${esc(site)}" style="font:900 34px/0.95 ${SANS};letter-spacing:-0.5px;text-transform:uppercase;color:${INK};text-decoration:none;">Everything<br>Counts</a>
+      <tr><td style="background:${FIELD};font-size:0;line-height:0;">
+        <a href="${esc(site)}" style="text-decoration:none;"><img src="${esc(mastheadUrl)}" width="600" alt="Everything Counts" style="display:block;width:100%;height:auto;border:0;font:900 26px/2 ${SANS};text-transform:uppercase;color:${INK};"></a>
       </td></tr>
-      <tr><td style="background:${INK};padding:11px 24px;font:700 12px ${SANS};letter-spacing:3px;text-transform:uppercase;color:${FIELD};">${esc(label)}</td></tr>
-      <tr><td style="height:18px;line-height:18px;font-size:0;">&nbsp;</td></tr>
+      <tr><td style="padding:16px 2px 12px;font:700 11px ${SANS};letter-spacing:2.5px;text-transform:uppercase;color:#6b6557;">${esc(label)}</td></tr>
       ${cards}
       <tr><td style="padding:14px 2px 0;font:400 12px/1.6 ${SANS};color:#6b6557;">
         You get this once a week because you have an account on Everything Counts.
@@ -212,7 +272,8 @@ export function renderWeekly({
     ...pieces.flatMap((p) => [
       p.title,
       [p.author, p.source].filter(Boolean).join(" · "),
-      `Logged by ${readersLine(p.readers)} · ${DAY_FMT.format(new Date(p.loggedAt))}`,
+      `Logged by ${readersLine(p.readers)}, ${DAY_FMT.format(new Date(p.loggedAt))}`,
+      ...(p.take ? [`“${p.take}”${p.readers.length > 1 && p.takeBy ? ` (@${p.takeBy})` : ""}`] : []),
       `${site}/work/${p.workId}`,
       ``,
     ]),
