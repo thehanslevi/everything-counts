@@ -33,7 +33,7 @@ export function TestWeeklyButton() {
       </button>
       {message && (
         <span
-          className={`font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] ${
+          className={`min-w-0 max-w-full font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] [overflow-wrap:anywhere] ${
             isError ? "text-accent" : "text-foreground/60"
           }`}
         >

@@ -701,9 +701,17 @@ export async function sendTestWeekly(): Promise<ActionResult> {
   if (result.error) return { ok: false, error: result.error };
   if (result.errors?.length) {
     const first = result.errors[0];
+    // The provider answers in JSON; show its sentence, not the envelope.
+    let reason = first.detail;
+    try {
+      const parsed = JSON.parse(first.detail) as { message?: string };
+      if (parsed.message) reason = parsed.message;
+    } catch {
+      // not JSON (or cut short): show it as it came
+    }
     return {
       ok: false,
-      error: `The mail provider refused it (${first.status}): ${first.detail}`,
+      error: `The mail provider refused it (${first.status}): ${reason}`,
     };
   }
   if ((result.sent ?? 0) > 0) return { ok: true, message: "Sent. Check your inbox." };
