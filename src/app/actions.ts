@@ -15,6 +15,8 @@ import {
   reportContent,
   setBlocked,
   setPinned,
+  setWeeklyEmail,
+  unsubscribeByToken,
   updateLog,
   updateProfile as saveProfile,
 } from "@/lib/data/logs";
@@ -22,6 +24,7 @@ import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { coerceUrl, workIdFor } from "@/lib/data/url";
 import { notify, notifyNewLog } from "@/lib/push";
 import { shareSigValid } from "@/lib/share";
+import { sendWeekly } from "@/lib/weekly";
 
 const SITE_URL = "https://everything-counts.vercel.app";
 const FOUNDER_HANDLE = "hrlevinson";
@@ -656,6 +659,62 @@ export async function togglePin(formData: FormData): Promise<ActionResult> {
   const me = await myHandle();
   if (me) revalidatePath(`/u/${me}`);
   return { ok: true };
+}
+
+// --- Weekly email ------------------------------------------------------------
+
+// The switch on your own profile.
+export async function toggleWeeklyEmail(formData: FormData): Promise<void> {
+  const on = formData.get("on") === "true";
+  try {
+    await setWeeklyEmail(on);
+  } catch {
+    // The page re-renders with whatever is actually stored.
+  }
+  const me = await myHandle();
+  if (me) revalidatePath(`/u/${me}`);
+}
+
+// The button on the page an email's "Stop this email" link opens.
+export async function confirmUnsubscribe(formData: FormData): Promise<void> {
+  await unsubscribeByToken((formData.get("token") as string | null) ?? "");
+  redirect("/unsubscribe?done=1");
+}
+
+// Founder-only: send yourself the weekly email now. Ignores your own off
+// switch and the once-a-week rule, and doesn't count as this week's send.
+export async function sendTestWeekly(): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in first." };
+  if ((await myHandle()) !== FOUNDER_HANDLE) {
+    return { ok: false, error: "Not available." };
+  }
+
+  const result = await sendWeekly({ onlyUserId: user.id, force: true });
+  if (!result) return { ok: false, error: "The email function didn't answer." };
+  if (result.skipped === "resend-not-configured") {
+    return { ok: false, error: "The mail provider isn't set up yet (no RESEND_API_KEY)." };
+  }
+  if (result.error) return { ok: false, error: result.error };
+  if (result.errors?.length) {
+    const first = result.errors[0];
+    return {
+      ok: false,
+      error: `The mail provider refused it (${first.status}): ${first.detail}`,
+    };
+  }
+  if ((result.sent ?? 0) > 0) return { ok: true, message: "Sent. Check your inbox." };
+  const reasons =
+    typeof result.skipped === "object" ? Object.keys(result.skipped).join(", ") : "";
+  return {
+    ok: false,
+    error: reasons === "nothing-new"
+      ? "Nothing to send: no one else has logged anything in the last 60 days."
+      : `Nothing sent${reasons ? ` (${reasons})` : ""}.`,
+  };
 }
 
 // --- Push notifications ------------------------------------------------------

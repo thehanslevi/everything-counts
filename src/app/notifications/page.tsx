@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
 import { TestPushButton } from "@/components/TestPushButton";
+import { TestWeeklyButton } from "@/components/TestWeeklyButton";
 import type { AppNotification } from "@/lib/data/types";
 
 const FOUNDER_HANDLE = "hrlevinson";
@@ -50,7 +51,12 @@ export default async function NotificationsPage() {
           </h2>
         </div>
 
-        {profile.handle === FOUNDER_HANDLE && <TestPushButton />}
+        {profile.handle === FOUNDER_HANDLE && (
+          <>
+            <TestPushButton />
+            <TestWeeklyButton />
+          </>
+        )}
 
         {items.length === 0 ? (
           <EmptyState title="Nothing yet" />

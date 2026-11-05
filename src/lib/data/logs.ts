@@ -950,3 +950,45 @@ export async function setPinned(logId: string, pinned: boolean): Promise<void> {
     .eq("user_id", user.id);
   if (error) throw new Error(error.message);
 }
+
+// --- Weekly email --------------------------------------------------------------
+
+// Whether the signed-in person gets the weekly email. On unless they turned
+// it off (a missing row means on, same as the table's default).
+export async function getWeeklyEmail(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from("email_prefs")
+    .select("weekly")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return data?.weekly ?? true;
+}
+
+export async function setWeeklyEmail(on: boolean): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in first.");
+  const { error } = await supabase
+    .from("email_prefs")
+    .update({ weekly: on, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+}
+
+// Turn the weekly email off for whoever holds this token (from the link in
+// an email). Works signed out; can only ever turn it off. Says nothing
+// about whether the token was real.
+export async function unsubscribeByToken(token: string): Promise<void> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+    return;
+  }
+  const supabase = await createClient();
+  await supabase.rpc("unsubscribe_weekly", { p_token: token });
+}

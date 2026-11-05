@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import {
   getFollowCounts,
   getLogsByUser,
+  getWeeklyEmail,
   getProfileByHandle,
   getSessionProfile,
   isBlocked,
   isFollowing,
 } from "@/lib/data/logs";
+import { toggleWeeklyEmail } from "@/app/actions";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { FollowButton } from "@/components/FollowButton";
 import { LogCard, formColor } from "@/components/LogCard";
@@ -57,6 +59,7 @@ export default async function ProfilePage({
   ]);
 
   const isSelf = viewer?.id === person.id;
+  const weeklyOn = isSelf ? await getWeeklyEmail() : false;
   const [following, blocked] =
     viewer && !isSelf
       ? await Promise.all([
@@ -131,6 +134,28 @@ export default async function ProfilePage({
             <ProfileEditForm profile={person} />
           </div>
         </details>
+      )}
+
+      {isSelf && (
+        // The weekly email's switch: its state, and one button to change it.
+        <form
+          action={toggleWeeklyEmail}
+          className="mt-4 flex items-center justify-between gap-4 border-[3px] border-foreground bg-paper px-5 py-3"
+        >
+          <input type="hidden" name="on" value={String(!weeklyOn)} />
+          <span className="font-structural text-xs font-bold uppercase tracking-[0.14em] text-foreground/70">
+            Weekly email{" "}
+            <span className={weeklyOn ? "text-accent" : "text-foreground/40"}>
+              {weeklyOn ? "On" : "Off"}
+            </span>
+          </span>
+          <button
+            type="submit"
+            className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground underline decoration-foreground/40 underline-offset-2 hover:text-accent"
+          >
+            {weeklyOn ? "Turn off" : "Turn on"}
+          </button>
+        </form>
       )}
 
       {blocked ? (
