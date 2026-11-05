@@ -10,7 +10,8 @@ import {
 } from "@/lib/data/logs";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { FollowButton } from "@/components/FollowButton";
-import { LogCard } from "@/components/LogCard";
+import { LogCard, formColor } from "@/components/LogCard";
+import { PinButton } from "@/components/PinButton";
 import { SafetyMenu } from "@/components/SafetyMenu";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
@@ -18,6 +19,7 @@ import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
 import { monthKey, parsePeriod } from "@/lib/period";
 import { sourceHref } from "@/lib/slug";
+import type { Log } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +145,8 @@ export default async function ProfilePage({
       {/* The anchor metric: pieces + estimated time, form-neutral. Quantity is
           a feature (the spec's reversed decision) — an honest mirror, shown on
           every profile so comparison can motivate. */}
+      <Favorites logs={logs} />
+
       {logs.length > 0 && (
         <StatsBand logs={logs} isSelf={isSelf} name={person.name} />
       )}
@@ -171,7 +175,8 @@ export default async function ProfilePage({
               >
                 <LogCard log={log} />
                 {isSelf && (
-                  <div className="mt-1 text-right">
+                  <div className="mt-1 flex items-center justify-end gap-5">
+                    <PinButton logId={log.id} pinned={Boolean(log.pinnedAt)} />
                     <Link
                       href={`/log/${log.id}/edit`}
                       className="font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/40 hover:text-accent"
@@ -205,6 +210,69 @@ export default async function ProfilePage({
 function plural(form: string, count: number): string {
   if (count === 1) return form;
   return form === "short story" ? "short stories" : `${form}s`;
+}
+
+// Up to four pieces this person chose to put first, in the order they chose
+// them. Compact tiles; each opens the piece.
+function Favorites({ logs }: { logs: Log[] }) {
+  const pinned = logs
+    .filter((log) => log.pinnedAt)
+    .sort((a, b) => (a.pinnedAt ?? "").localeCompare(b.pinnedAt ?? ""))
+    .slice(0, 4);
+  if (pinned.length === 0) return null;
+
+  return (
+    <section className="mt-10">
+      <h2 className="border-b-[3px] border-foreground pb-3 font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground">
+        Favorites
+      </h2>
+      <ol className="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
+        {pinned.map((log) => (
+          <li key={log.id}>
+            <Link
+              href={`/work/${log.workId}`}
+              className="flex h-full flex-col border-[3px] border-foreground bg-paper transition-transform hover:-translate-y-0.5"
+            >
+              {log.image ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={log.image}
+                    alt=""
+                    loading="lazy"
+                    className="block h-24 w-full border-b-[3px] border-foreground object-cover sm:h-32"
+                  />
+                  <span
+                    className={`${formColor(log.form)} self-start px-2 py-1 font-structural text-[0.6rem] font-bold uppercase tracking-[0.16em] text-white`}
+                  >
+                    {log.form}
+                  </span>
+                </>
+              ) : (
+                // No lead image: a block in the form's color at the same
+                // height, so the row of tiles stays even.
+                <span
+                  className={`${formColor(log.form)} flex h-24 w-full items-end border-b-[3px] border-foreground px-2 py-1 font-structural text-[0.6rem] font-bold uppercase tracking-[0.16em] text-white sm:h-32`}
+                >
+                  {log.form}
+                </span>
+              )}
+              <span className="flex flex-1 flex-col p-3">
+                <span className="line-clamp-3 break-words font-structural text-sm font-black uppercase leading-[1.05] tracking-[-0.01em] text-foreground">
+                  {log.title}
+                </span>
+                {log.source && (
+                  <span className="mt-2 truncate font-structural text-[0.6rem] font-bold uppercase tracking-[0.1em] text-foreground/55">
+                    {log.source}
+                  </span>
+                )}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
 }
 
 // The record as a poster: the most recent month with reading in it, and

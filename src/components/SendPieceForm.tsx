@@ -4,13 +4,12 @@ import { useState, useTransition } from "react";
 import { sendPiece } from "@/app/actions";
 import type { Profile } from "@/lib/data/types";
 
-const SITE = "https://everything-counts.vercel.app";
-
 // Share this piece. Two ways out of one button:
 //  - a link, for anyone: the phone's own share sheet (Messages, mail,
 //    whatever they use), or the clipboard on a desktop. The link carries the
-//    sharer's handle, so the piece arrives as "sent by" them and a newcomer
-//    who signs up from it starts with that piece ready to log.
+//    sharer's handle and a signature, so the piece arrives as "sent by"
+//    them and a newcomer who signs up from it starts with that piece ready
+//    to log.
 //  - a person already here: pick them, add a line, send. They get a push.
 // Either way the piece is the message; there is no message without one.
 export function SendPieceForm({
@@ -18,13 +17,13 @@ export function SendPieceForm({
   workId,
   url,
   title,
-  fromHandle,
+  linkUrl,
 }: {
   people: Profile[];
   workId: string;
   url: string | null;
   title: string;
-  fromHandle: string;
+  linkUrl: string; // made and signed on the server for this viewer
 }) {
   const [open, setOpen] = useState(false);
   const [recipientId, setRecipientId] = useState(people[0]?.id ?? "");
@@ -35,7 +34,7 @@ export function SendPieceForm({
 
   async function shareLink() {
     setError(null);
-    const link = `${SITE}/work/${workId}?from=${fromHandle}`;
+    const link = linkUrl;
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({ title, url: link });

@@ -70,6 +70,11 @@ export interface Log {
   take: string | null;
   rating: number | null;
   createdAt: string; // ISO timestamp
+  viaUserId: string | null; // who handed them this piece, when someone did
+  // That person, resolved for display by the data layer where logs are
+  // listed. Null when nobody sent it (the norm) or the sender isn't shown.
+  sentBy: { handle: string; name: string } | null;
+  pinnedAt: string | null; // when it was added to the owner's favorites
 }
 
 // The shape a caller provides to create a log. The data layer fills in id,
@@ -123,6 +128,8 @@ export interface LogRow {
   take: string | null;
   rating: number | null;
   created_at: string;
+  via_user_id?: string | null;
+  pinned_at?: string | null;
 }
 
 export interface ProfileRow {
@@ -149,6 +156,9 @@ export function logFromRow(row: LogRow): Log {
     take: row.take,
     rating: row.rating,
     createdAt: row.created_at,
+    viaUserId: row.via_user_id ?? null,
+    sentBy: null,
+    pinnedAt: row.pinned_at ?? null,
   };
 }
 

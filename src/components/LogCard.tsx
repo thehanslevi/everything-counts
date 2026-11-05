@@ -132,6 +132,14 @@ export function LogCard({ log, logger }: { log: Log; logger?: Profile }) {
               <Stars rating={log.rating} />
             </div>
           )}
+
+          {log.sentBy && (
+            // Who handed them this piece. Text, not a link: the whole card
+            // already is one.
+            <p className="mt-4 font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/50">
+              Sent by @{log.sentBy.handle}
+            </p>
+          )}
         </div>
       </article>
     </Link>

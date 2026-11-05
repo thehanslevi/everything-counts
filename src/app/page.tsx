@@ -7,6 +7,7 @@ import {
 } from "@/lib/data/logs";
 import { LogForm } from "@/components/LogForm";
 import { LogCard } from "@/components/LogCard";
+import { PinButton } from "@/components/PinButton";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { BulkImport } from "@/components/BulkImport";
@@ -128,7 +129,8 @@ export default async function Home({
                 className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
               >
                 <LogCard log={log} />
-                <div className="mt-1 text-right">
+                <div className="mt-1 flex items-center justify-end gap-5">
+                  <PinButton logId={log.id} pinned={Boolean(log.pinnedAt)} />
                   <Link
                     href={`/log/${log.id}/edit`}
                     className="font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/40 hover:text-accent"

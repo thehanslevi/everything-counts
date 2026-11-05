@@ -14,12 +14,14 @@ import {
   ownLogDateForUrl,
   reportContent,
   setBlocked,
+  setPinned,
   updateLog,
   updateProfile as saveProfile,
 } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { coerceUrl, workIdFor } from "@/lib/data/url";
 import { notify, notifyNewLog } from "@/lib/push";
+import { shareSigValid } from "@/lib/share";
 
 const SITE_URL = "https://everything-counts.vercel.app";
 const FOUNDER_HANDLE = "hrlevinson";
@@ -27,11 +29,14 @@ const INVITE_COOKIE = "ec-invited-by";
 // A piece someone sent a not-yet-member: carried across signup so their
 // first screen is that piece, ready to save.
 const PENDING_PIECE_COOKIE = "ec-pending-piece";
-// "workId:handle" — whose share link brought this visitor to a piece. Set
-// by the work page (ViaMarker); read once when they log that piece.
+// "workId:handle:signature" — whose share link brought this visitor to a
+// piece. Set by the work page (ViaMarker); read once when they log that
+// piece.
 const VIA_COOKIE = "ec-via";
 
-// The handle in a via cookie, if it is for this work.
+// The handle in a via cookie, if it is for this work and the signature from
+// the share link checks out. The log will say "sent by" that person in
+// public, so an unsigned or mis-signed claim counts for nothing.
 function viaHandleFor(raw: string | undefined, workId: string): string | null {
   if (!raw) return null;
   let value = raw;
@@ -40,12 +45,11 @@ function viaHandleFor(raw: string | undefined, workId: string): string | null {
   } catch {
     // already decoded
   }
-  const i = value.lastIndexOf(":");
-  if (i < 0) return null;
-  const handle = value.slice(i + 1);
-  return value.slice(0, i) === workId && /^[a-z0-9_]{2,24}$/.test(handle)
-    ? handle
-    : null;
+  const [work, handle, sig] = value.split(":");
+  if (work !== workId || !handle || !/^[a-z0-9_]{2,24}$/.test(handle)) {
+    return null;
+  }
+  return shareSigValid(workId, handle, sig) ? handle : null;
 }
 
 export interface ActionResult {
@@ -631,6 +635,27 @@ export async function sendPiece(formData: FormData): Promise<ActionResult> {
       error: err instanceof Error ? err.message : "Could not send that.",
     };
   }
+}
+
+// --- Favorites ---------------------------------------------------------------
+
+// Add one of your own logs to your favorites, or take it out.
+export async function togglePin(formData: FormData): Promise<ActionResult> {
+  const logId = (formData.get("logId") as string | null) ?? "";
+  const pinned = formData.get("pinned") === "true";
+  if (!logId) return { ok: false, error: "Which log?" };
+  try {
+    await setPinned(logId, pinned);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Couldn't change that.",
+    };
+  }
+  revalidatePath("/");
+  const me = await myHandle();
+  if (me) revalidatePath(`/u/${me}`);
+  return { ok: true };
 }
 
 // --- Push notifications ------------------------------------------------------

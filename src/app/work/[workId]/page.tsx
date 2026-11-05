@@ -18,6 +18,7 @@ import { ReplyForm } from "@/components/ReplyForm";
 import { SendPieceForm } from "@/components/SendPieceForm";
 import { ViaMarker } from "@/components/ViaMarker";
 import { authorHref, sourceHref } from "@/lib/slug";
+import { shareSigValid, shareUrl } from "@/lib/share";
 import type { Log, Profile, Reply } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
@@ -55,9 +56,12 @@ export default async function WorkPage({
   searchParams,
 }: {
   params: Promise<{ workId: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; s?: string }>;
 }) {
-  const [{ workId }, { from }] = await Promise.all([params, searchParams]);
+  const [{ workId }, { from, s: sig }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const [work, { profile: viewer }, alsoRead] = await Promise.all([
     getWork(workId),
     getSessionProfile(),
@@ -65,13 +69,17 @@ export default async function WorkPage({
   ]);
   if (!work) notFound();
 
-  // ?from=<handle>: this visitor arrived by someone's share link. Show who
-  // sent it and one way forward: log it (members) or make an account with
-  // the piece riding along (everyone else). Ignored for your own link.
+  // ?from=<handle>&s=<signature>: this visitor arrived by someone's share
+  // link. Show who sent it and one way forward: log it (members) or make an
+  // account with the piece riding along (everyone else). The name is only
+  // believed when the signature matches, since it ends up on a public log;
+  // ignored for your own link.
   const fromHandle =
     from && /^[a-z0-9_]{2,24}$/i.test(from) ? from.toLowerCase() : null;
   const sender =
-    fromHandle && fromHandle !== viewer?.handle
+    fromHandle &&
+    fromHandle !== viewer?.handle &&
+    shareSigValid(work.id, fromHandle, sig)
       ? await getProfileByHandle(fromHandle)
       : undefined;
 
@@ -133,7 +141,7 @@ export default async function WorkPage({
                   Log it
                 </Link>
               )}
-          <ViaMarker workId={work.id} handle={sender.handle} />
+          <ViaMarker workId={work.id} handle={sender.handle} sig={sig ?? ""} />
         </section>
       )}
 
@@ -199,7 +207,7 @@ export default async function WorkPage({
                 workId={work.id}
                 url={work.url}
                 title={work.title}
-                fromHandle={viewer.handle}
+                linkUrl={shareUrl(work.id, viewer.handle)}
               />
             )}
           </div>
@@ -331,7 +339,11 @@ function PooledLog({
     : false;
   const canReply = Boolean(viewer) && !isOwner && !alreadyReplied;
   const hasBody =
-    Boolean(log.take) || log.rating != null || replies.length > 0 || canReply;
+    Boolean(log.take) ||
+    log.rating != null ||
+    Boolean(log.sentBy) ||
+    replies.length > 0 ||
+    canReply;
 
   return (
     <article className="border-[3px] border-foreground bg-paper">
@@ -369,11 +381,26 @@ function PooledLog({
               <Stars rating={log.rating} />
             </div>
           )}
+          {log.sentBy && (
+            <p
+              className={`font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/50 ${
+                log.take || log.rating != null ? "mt-3" : ""
+              }`}
+            >
+              Sent by{" "}
+              <Link
+                href={`/u/${log.sentBy.handle}`}
+                className="text-foreground/70 hover:text-accent hover:underline"
+              >
+                @{log.sentBy.handle}
+              </Link>
+            </p>
+          )}
 
           {replies.length > 0 && (
             <ol
               className={`flex flex-col gap-3 ${
-                log.take || log.rating != null
+                log.take || log.rating != null || log.sentBy
                   ? "mt-4 border-t border-foreground/30 pt-4"
                   : ""
               }`}
@@ -417,7 +444,10 @@ function PooledLog({
           {canReply && (
             <div
               className={
-                log.take || log.rating != null || replies.length > 0
+                log.take ||
+                log.rating != null ||
+                log.sentBy ||
+                replies.length > 0
                   ? "mt-4"
                   : ""
               }

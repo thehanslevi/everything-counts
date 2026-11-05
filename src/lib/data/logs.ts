@@ -538,6 +538,23 @@ export async function markNotificationsRead(): Promise<void> {
 // --- Logs --------------------------------------------------------------------
 
 // One user's shared logs, newest first (their public record).
+// Resolve "sent by" on a list of logs, in place: one profile lookup for all
+// of them. A sender this viewer has blocked is left off, like the rest of
+// what that person does.
+async function attachSenders(logs: Log[]): Promise<void> {
+  const ids = [
+    ...new Set(
+      logs.map((log) => log.viaUserId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  if (ids.length === 0) return;
+  const senders = new Map((await profilesByIds(ids)).map((p) => [p.id, p]));
+  for (const log of logs) {
+    const sender = log.viaUserId ? senders.get(log.viaUserId) : undefined;
+    if (sender) log.sentBy = { handle: sender.handle, name: sender.name };
+  }
+}
+
 export async function getLogsByUser(userId: string): Promise<Log[]> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -545,7 +562,9 @@ export async function getLogsByUser(userId: string): Promise<Log[]> {
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
-  return ((data ?? []) as LogRow[]).map(logFromRow);
+  const logs = ((data ?? []) as LogRow[]).map(logFromRow);
+  await attachSenders(logs);
+  return logs;
 }
 
 // The reverse-chronological feed for a viewer: shared logs from the people
@@ -569,9 +588,11 @@ export async function getFeed(viewerId: string): Promise<FeedItem[]> {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  return ((data ?? []) as LogWithProfileRow[])
+  const items = ((data ?? []) as LogWithProfileRow[])
     .filter((row) => !blocked.has(row.user_id))
     .map((row) => ({ log: logFromRow(row), user: profileFromRow(row.profiles) }));
+  await attachSenders(items.map((item) => item.log));
+  return items;
 }
 
 // Recent shared logs across the whole network, for the signed-out landing.
@@ -585,10 +606,12 @@ export async function getRecentActivity(limit = 20): Promise<FeedItem[]> {
     .order("created_at", { ascending: false })
     .limit(limit + blocked.size);
 
-  return ((data ?? []) as LogWithProfileRow[])
+  const items = ((data ?? []) as LogWithProfileRow[])
     .filter((row) => !blocked.has(row.user_id))
     .slice(0, limit)
     .map((row) => ({ log: logFromRow(row), user: profileFromRow(row.profiles) }));
+  await attachSenders(items.map((item) => item.log));
+  return items;
 }
 
 // Resolve a work: its pooled logs (newest first, with loggers) plus an
@@ -611,6 +634,7 @@ export async function getWork(
   if (rows.length === 0) return undefined;
 
   const logs = rows.map(logFromRow);
+  await attachSenders(logs);
   const loggers = new Map(
     rows.map((row) => [row.user_id, profileFromRow(row.profiles)]),
   );
@@ -895,4 +919,34 @@ export async function getCatalog(
           b.pieces - a.pieces || a.profile.name.localeCompare(b.profile.name),
       ),
   };
+}
+
+// --- Favorites -----------------------------------------------------------------
+
+// Add one of your own logs to your favorites, or take it out. Four at most:
+// the point is choosing.
+export async function setPinned(logId: string, pinned: boolean): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in first.");
+
+  if (pinned) {
+    const { count } = await supabase
+      .from("logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .not("pinned_at", "is", null);
+    if ((count ?? 0) >= 4) {
+      throw new Error("Four is the limit. Unfavorite one first.");
+    }
+  }
+
+  const { error } = await supabase
+    .from("logs")
+    .update({ pinned_at: pinned ? new Date().toISOString() : null })
+    .eq("id", logId)
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
 }
