@@ -16,6 +16,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
 import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
+import { monthKey, parsePeriod } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,7 @@ export default async function ProfilePage({
       {logs.length > 0 && (
         <StatsBand logs={logs} isSelf={isSelf} name={person.name} />
       )}
+      {logs.length > 0 && <CardLinks handle={person.handle} latest={logs[0].createdAt} />}
 
       <section className="mt-16">
         <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">
@@ -202,6 +204,25 @@ export default async function ProfilePage({
 function plural(form: string, count: number): string {
   if (count === 1) return form;
   return form === "short story" ? "short stories" : `${form}s`;
+}
+
+// The record as a poster: the most recent month with reading in it, and
+// that year. Each opens a card made to be saved or sent.
+function CardLinks({ handle, latest }: { handle: string; latest: string }) {
+  const month = parsePeriod(monthKey(new Date(latest)));
+  if (!month) return null;
+  const linkClass =
+    "border-b-2 border-foreground pb-0.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-accent hover:text-accent";
+  return (
+    <p className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+      <Link href={`/u/${handle}/card/${month.key}`} className={linkClass}>
+        {month.title} card
+      </Link>
+      <Link href={`/u/${handle}/card/${month.yearLabel}`} className={linkClass}>
+        {month.yearLabel} card
+      </Link>
+    </p>
+  );
 }
 
 // The reading-so-far band: "You read 5 things, about 1.5 hrs" for the year,

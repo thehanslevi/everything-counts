@@ -30,7 +30,8 @@ export interface ProfileStats {
   year: number;
 }
 
-function tally(logs: Log[]): ReadingStats {
+// Pieces, estimated minutes, and the per-form count for any set of logs.
+export function tally(logs: Log[]): ReadingStats {
   const byForm: Partial<Record<Form, number>> = {};
   let estMinutes = 0;
   for (const log of logs) {
