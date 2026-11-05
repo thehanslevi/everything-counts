@@ -519,3 +519,215 @@ export async function periodPoster({
     },
   );
 }
+
+// --- The link preview for a piece ------------------------------------------------
+
+// What a messaging app shows when someone sends a piece. The app prints the
+// title under the image on its own, so the card never repeats it: the left
+// side is the piece's own lead image (or, without one, where it was
+// published, in big type), the right side is the seal, the form, and how
+// many people logged it. Byline in the band.
+
+const PHOTO = { width: 794, height: 552 };
+
+// The piece's lead image as a data URI, if it is something the renderer can
+// draw (JPEG or PNG, told by the bytes, not the URL or the header). Anything
+// else, anything too big, any failure: null, and the card uses type instead.
+async function leadImageDataUri(url: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    // Public hosts only: this URL came from a page's metadata or a form
+    // field, and it is fetched from the server.
+    const host = u.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal") ||
+      host.includes(":") ||
+      /^[\d.]+$/.test(host)
+    ) {
+      return null;
+    }
+    const res = await fetch(u, {
+      signal: controller.signal,
+      // Ask for what can be drawn; CDNs that negotiate format honor this.
+      headers: { Accept: "image/jpeg,image/png;q=0.9" },
+    });
+    if (!res.ok) return null;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.byteLength < 4 || bytes.byteLength > 6_000_000) return null;
+    const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const isPng =
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47;
+    if (!isJpeg && !isPng) return null;
+    return `data:image/${isJpeg ? "jpeg" : "png"};base64,${bytes.toString("base64")}`;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function workCard({
+  form,
+  loggerCount,
+  source,
+  author,
+  image,
+}: {
+  form: string;
+  loggerCount: number;
+  source: string | null;
+  author: string | null;
+  image: string | null;
+}): Promise<Response> {
+  const [fonts, photo] = await Promise.all([
+    loadPosterFonts(),
+    image ? leadImageDataUri(image) : Promise.resolve(null),
+  ]);
+
+  const band =
+    [author, source].filter(Boolean).join(" · ") ||
+    "everything-counts.vercel.app";
+  const big = source ?? "Everything Counts";
+  const bigSize =
+    big.length <= 10 ? 124 : big.length <= 18 ? 94 : big.length <= 30 ? 68 : 52;
+
+  const render = (withPhoto: string | null) =>
+    new ImageResponse(
+      (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            background: FIELD,
+            color: INK,
+            fontFamily: fonts ? FACE : undefined,
+          }}
+        >
+          <div style={{ display: "flex", height: PHOTO.height }}>
+            <div
+              style={{
+                display: "flex",
+                width: PHOTO.width + 6,
+                height: PHOTO.height,
+                borderRight: `6px solid ${INK}`,
+                overflow: "hidden",
+              }}
+            >
+              {withPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={withPhoto}
+                  width={PHOTO.width}
+                  height={PHOTO.height}
+                  alt=""
+                  style={{ objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 56px",
+                    fontSize: bigSize,
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    lineHeight: 1.02,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {clip(big, 60)}
+                </div>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: 1,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={markDataUri()} width={210} height={210} alt="" />
+              <div
+                style={{
+                  display: "flex",
+                  marginTop: 30,
+                  background: FORM_HEX[form] ?? INK,
+                  color: "#ffffff",
+                  border: `5px solid ${INK}`,
+                  padding: "10px 24px",
+                  fontSize: 28,
+                  fontWeight: 700,
+                  letterSpacing: 5,
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {form}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  marginTop: 22,
+                  fontSize: 21,
+                  fontWeight: 700,
+                  letterSpacing: 4,
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Logged by {loggerCount} {loggerCount === 1 ? "person" : "people"}
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flex: 1,
+              background: INK,
+              color: FIELD,
+              padding: "0 56px",
+              fontSize: 25,
+              fontWeight: 700,
+              letterSpacing: 4,
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {clip(band, 56)}
+          </div>
+        </div>
+      ),
+      { ...OG_SIZE, ...(fonts ? { fonts } : {}) },
+    );
+
+  // The renderer draws lazily, so a lead image it can't decode only fails
+  // once the bytes are pulled. Pull them here: if the photo version throws,
+  // the type version goes out instead of an error. An hour's cache, since
+  // the logger count on the card moves.
+  const headers = {
+    "content-type": "image/png",
+    "cache-control": "public, max-age=3600",
+  };
+  if (photo) {
+    try {
+      return new Response(await render(photo).arrayBuffer(), { headers });
+    } catch {
+      // fall through to the type version
+    }
+  }
+  return new Response(await render(null).arrayBuffer(), { headers });
+}

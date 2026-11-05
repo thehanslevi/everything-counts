@@ -1,11 +1,13 @@
 import { getWork } from "@/lib/data/logs";
-import { OG_SIZE, posterCard } from "@/lib/og";
+import { OG_SIZE, posterCard, workCard } from "@/lib/og";
 
 export const size = OG_SIZE;
 export const contentType = "image/png";
 export const alt = "A work on Everything Counts";
 
-// Per-work share card: form + logger count, the title big, byline in the band.
+// Per-work share card: the piece's lead image, the form, and how many people
+// logged it, byline in the band. No title: the app showing the preview
+// prints that itself, directly underneath.
 export default async function Image({
   params,
 }: {
@@ -23,11 +25,12 @@ export default async function Image({
   }
 
   const loggerCount = new Set(work.logs.map((l) => l.userId)).size;
-  const byline = [work.author, work.source].filter(Boolean).join(" · ");
 
-  return posterCard({
-    kicker: `${work.form} · logged by ${loggerCount} ${loggerCount === 1 ? "person" : "people"}`,
-    title: work.title,
-    footer: byline || "everything-counts.vercel.app",
+  return workCard({
+    form: work.form,
+    loggerCount,
+    source: work.source,
+    author: work.author,
+    image: work.image,
   });
 }
