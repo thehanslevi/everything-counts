@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   // of relying on the tracer to infer it.
   outputFileTracingIncludes: {
     "/u/**": ["./assets/fonts/*.woff"],
-    "/work/**": ["./assets/fonts/*.woff"],
   },
 };
 
