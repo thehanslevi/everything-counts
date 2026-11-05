@@ -47,10 +47,10 @@ export default async function LogPage({
 
       <section className="mt-10 border-[3px] border-foreground bg-paper">
         <h2 className="border-b-[3px] border-foreground bg-accent-2 px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-white">
-          {isNew ? "Log the last thing you read" : "Log a piece"}
+          {isNew && !shared ? "Log the last thing you read" : "Log a piece"}
         </h2>
         <div className="p-5 sm:p-6">
-          {isNew && (
+          {isNew && !shared && (
             <p className="mb-5 font-serif text-[15px] leading-[1.6] text-foreground/75">
               An article, a newsletter, a chapter — whatever you finished most
               recently. Paste the link.

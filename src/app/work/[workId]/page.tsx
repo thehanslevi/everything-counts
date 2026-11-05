@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   getAlsoRead,
   getFolloweeIds,
+  getProfileByHandle,
   getRepliesForLogs,
   getSendablePeople,
   getSessionProfile,
@@ -15,6 +16,7 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { Avatar } from "@/components/Avatar";
 import { ReplyForm } from "@/components/ReplyForm";
 import { SendPieceForm } from "@/components/SendPieceForm";
+import { ViaMarker } from "@/components/ViaMarker";
 import type { Log, Profile, Reply } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
@@ -49,16 +51,28 @@ function formatDate(iso: string): string {
 
 export default async function WorkPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
-  const { workId } = await params;
+  const [{ workId }, { from }] = await Promise.all([params, searchParams]);
   const [work, { profile: viewer }, alsoRead] = await Promise.all([
     getWork(workId),
     getSessionProfile(),
     getAlsoRead(workId),
   ]);
   if (!work) notFound();
+
+  // ?from=<handle>: this visitor arrived by someone's share link. Show who
+  // sent it and one way forward: log it (members) or make an account with
+  // the piece riding along (everyone else). Ignored for your own link.
+  const fromHandle =
+    from && /^[a-z0-9_]{2,24}$/i.test(from) ? from.toLowerCase() : null;
+  const sender =
+    fromHandle && fromHandle !== viewer?.handle
+      ? await getProfileByHandle(fromHandle)
+      : undefined;
 
   // Replies on each log, and who the viewer could send this piece to.
   const [replies, sendable] = await Promise.all([
@@ -93,8 +107,39 @@ export default async function WorkPage({
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
       <SiteHeader />
 
+      {sender && !you && (
+        <section className="mt-12 flex flex-wrap items-center justify-between gap-3 border-[3px] border-foreground bg-foreground px-5 py-4">
+          <p className="font-structural text-sm font-bold uppercase tracking-[0.08em] text-background">
+            <span className="mr-2 inline-block size-2 rounded-full bg-accent align-middle" />
+            {sender.name} sent you this
+          </p>
+          {viewer
+            ? work.url && (
+                <Link
+                  href={`/log?url=${encodeURIComponent(work.url)}`}
+                  className="bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
+                >
+                  Log it
+                </Link>
+              )
+            : (
+                <Link
+                  href={`/signin?ref=${sender.handle}${
+                    work.url ? `&piece=${encodeURIComponent(work.url)}` : ""
+                  }`}
+                  className="bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
+                >
+                  Log it
+                </Link>
+              )}
+          <ViaMarker workId={work.id} handle={sender.handle} />
+        </section>
+      )}
+
       {/* The work's identity, shown once. */}
-      <section className="mt-12 border-[3px] border-foreground bg-paper">
+      <section
+        className={`${sender && !you ? "mt-6" : "mt-12"} border-[3px] border-foreground bg-paper`}
+      >
         {work.image && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -151,6 +196,7 @@ export default async function WorkPage({
                 workId={work.id}
                 url={work.url}
                 title={work.title}
+                fromHandle={viewer.handle}
               />
             )}
           </div>

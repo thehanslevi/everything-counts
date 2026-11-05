@@ -52,12 +52,14 @@ export async function notify(n: Notification): Promise<{
 
 // A new log pushes only to people with a stake in that piece: anyone who has
 // already logged the same work. Followers see it in their feed and bell, but
-// their phone stays quiet for it — a push is for "someone read what you
+// it doesn't buzz their phone — a push is for "someone read what you
 // read," not "someone you follow did something."
 export async function notifyNewLog(log: {
   userId: string;
   title: string;
   workId: string;
+  /** Skip this person: they are told separately (they sent the piece). */
+  excludeUserId?: string | null;
 }): Promise<void> {
   if (!PUSH_SECRET) return;
   const supabase = await createClient();
@@ -75,7 +77,9 @@ export async function notifyNewLog(log: {
     .eq("work_id", log.workId)
     .eq("shared", true)
     .neq("user_id", log.userId);
-  const recipients = [...new Set((coReaders ?? []).map((r) => r.user_id))];
+  const recipients = [
+    ...new Set((coReaders ?? []).map((r) => r.user_id)),
+  ].filter((id) => id !== log.excludeUserId);
   if (recipients.length === 0) return;
 
   await Promise.all(

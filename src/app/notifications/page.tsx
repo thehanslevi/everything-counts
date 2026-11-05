@@ -74,7 +74,8 @@ function NotificationRow({ n }: { n: AppNotification }) {
     (n.type === "log" ||
       n.type === "coread" ||
       n.type === "reply" ||
-      n.type === "reply_also") &&
+      n.type === "reply_also" ||
+      n.type === "logged_via") &&
     n.workId;
   // A sent piece opens straight into logging it; everything else opens the
   // work, or the person.
@@ -133,6 +134,15 @@ function NotificationRow({ n }: { n: AppNotification }) {
               {n.logTitle ?? "a piece"}
             </span>
             {n.body ? <>: “{n.body}”</> : "."}
+          </>
+        )}
+        {n.type === "logged_via" && (
+          <>
+            logged{" "}
+            <span className="font-structural font-bold uppercase tracking-[0.02em] text-foreground">
+              {n.logTitle ?? "a piece"}
+            </span>
+            , the piece you sent.
           </>
         )}
         {n.type === "reply_also" && (

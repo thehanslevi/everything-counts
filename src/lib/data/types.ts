@@ -83,6 +83,7 @@ export interface NewLog {
   form: Form;
   take?: string | null;
   rating?: number | null;
+  viaUserId?: string | null; // who handed them this piece, when someone did
 }
 
 // A feed entry: a shared log joined with the person who logged it.

@@ -10,6 +10,7 @@ import {
   addSend,
   deleteLog,
   deleteReply,
+  findSenderFor,
   ownLogDateForUrl,
   reportContent,
   setBlocked,
@@ -17,11 +18,35 @@ import {
   updateProfile as saveProfile,
 } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
+import { coerceUrl, workIdFor } from "@/lib/data/url";
 import { notify, notifyNewLog } from "@/lib/push";
 
 const SITE_URL = "https://everything-counts.vercel.app";
 const FOUNDER_HANDLE = "hrlevinson";
 const INVITE_COOKIE = "ec-invited-by";
+// A piece someone sent a not-yet-member: carried across signup so their
+// first screen is that piece, ready to save.
+const PENDING_PIECE_COOKIE = "ec-pending-piece";
+// "workId:handle" — whose share link brought this visitor to a piece. Set
+// by the work page (ViaMarker); read once when they log that piece.
+const VIA_COOKIE = "ec-via";
+
+// The handle in a via cookie, if it is for this work.
+function viaHandleFor(raw: string | undefined, workId: string): string | null {
+  if (!raw) return null;
+  let value = raw;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    // already decoded
+  }
+  const i = value.lastIndexOf(":");
+  if (i < 0) return null;
+  const handle = value.slice(i + 1);
+  return value.slice(0, i) === workId && /^[a-z0-9_]{2,24}$/.test(handle)
+    ? handle
+    : null;
+}
 
 export interface ActionResult {
   ok: boolean;
@@ -52,8 +77,16 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
   }
 
   try {
+    // Who, if anyone, handed them this piece: the share link they arrived
+    // by, or a member's Share. Recorded on the log; the sender hears back.
+    const rawUrl = ((formData.get("url") as string | null) ?? "").trim() || null;
+    const cookieStore = await cookies();
+    const workId = workIdFor(rawUrl, title);
+    const viaHint = viaHandleFor(cookieStore.get(VIA_COOKIE)?.value, workId);
+    const viaUserId = await findSenderFor(workId, viaHint);
+
     const log = await addLog({
-      url: (formData.get("url") as string | null) ?? null,
+      url: rawUrl,
       title,
       author: (formData.get("author") as string | null) ?? null,
       source: (formData.get("source") as string | null) ?? null,
@@ -61,11 +94,25 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
       form: formValue as Form,
       take: (formData.get("take") as string | null) ?? null,
       rating,
+      viaUserId,
     });
+    if (viaHint) cookieStore.delete(VIA_COOKIE);
     revalidatePath("/");
     revalidatePath("/feed");
-    // Tell this user's followers a new piece landed. Best-effort.
-    await notifyNewLog(log);
+    // Push to people who also read this piece; the sender is told their own
+    // way. Best-effort.
+    await notifyNewLog({ ...log, excludeUserId: viaUserId });
+    if (viaUserId) {
+      const me = await myHandle();
+      if (me) {
+        await notify({
+          recipientUserId: viaUserId,
+          title: `@${me} logged “${log.title}”`,
+          body: "The piece you sent.",
+          url: `/work/${log.workId}`,
+        });
+      }
+    }
     return { ok: true, log };
   } catch (err) {
     return {
@@ -162,6 +209,17 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   if (inviteRef && /^[a-z0-9_]{2,24}$/.test(inviteRef)) {
     const cookieStore = await cookies();
     cookieStore.set(INVITE_COOKIE, inviteRef, {
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+  }
+
+  // A piece someone sent them rides along too, so it is the first thing
+  // they see once the account exists.
+  const piece = coerceUrl((formData.get("piece") as string | null) ?? "");
+  if (piece) {
+    const cookieStore = await cookies();
+    cookieStore.set(PENDING_PIECE_COOKIE, piece, {
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
@@ -277,8 +335,17 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
 
   // Straight to logging: a brand-new account's next move is its first piece,
   // not an empty record. ?new=1 shows the first-log prompt and the
-  // log-from-anywhere card once.
-  redirect("/log?new=1");
+  // log-from-anywhere card once. If someone sent them a piece, that piece
+  // is the first log, already filled in.
+  const pendingPiece = coerceUrl(
+    cookieStore.get(PENDING_PIECE_COOKIE)?.value ?? "",
+  );
+  cookieStore.delete(PENDING_PIECE_COOKIE);
+  redirect(
+    pendingPiece
+      ? `/log?new=1&url=${encodeURIComponent(pendingPiece)}`
+      : "/log?new=1",
+  );
 }
 
 // Edit your own profile: name, bio, one link, and optionally the avatar. The

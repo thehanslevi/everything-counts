@@ -14,13 +14,17 @@ type Mode = "signin" | "signup" | "forgot";
 // Sign in / create account / forgot password, one panel. `inviteRef` is the
 // handle of whoever shared their invite link; it rides along signup so the
 // new person starts by following their inviter. `next` is a same-site path to
-// land on after sign-in (already validated by the page).
+// land on after sign-in (already validated by the page). `piece` is the URL
+// of a piece someone sent them; it rides along signup so it is waiting,
+// filled in, once the account exists.
 export function AuthForm({
   inviteRef,
   next,
+  piece,
 }: {
   inviteRef?: string;
   next?: string;
+  piece?: string;
 }) {
   const [mode, setMode] = useState<Mode>(inviteRef ? "signup" : "signin");
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +83,9 @@ export function AuthForm({
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
         {mode === "signup" && inviteRef && (
           <input type="hidden" name="ref" value={inviteRef} />
+        )}
+        {mode === "signup" && piece && (
+          <input type="hidden" name="piece" value={piece} />
         )}
         {mode === "signin" && next && (
           <input type="hidden" name="next" value={next} />

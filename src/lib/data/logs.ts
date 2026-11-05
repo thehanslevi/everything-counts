@@ -771,10 +771,44 @@ export async function addLog(input: NewLog): Promise<Log> {
       form: input.form,
       take: input.take?.trim() || null,
       rating: input.rating ?? null,
+      via_user_id: input.viaUserId ?? null,
     })
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
   return logFromRow(data as LogRow);
+}
+
+// Who handed the signed-in user this piece, if anyone: the person whose
+// share link they arrived by (a handle hint from the link), else the member
+// who most recently used Share to send it to them. Attribution only.
+export async function findSenderFor(
+  workId: string,
+  hintHandle: string | null,
+): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  if (hintHandle) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("handle", hintHandle)
+      .maybeSingle();
+    if (data && data.id !== user.id) return data.id;
+  }
+
+  const { data: send } = await supabase
+    .from("sends")
+    .select("sender_id")
+    .eq("recipient_id", user.id)
+    .eq("work_id", workId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return send?.sender_id ?? null;
 }
