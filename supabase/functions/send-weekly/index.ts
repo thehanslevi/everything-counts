@@ -17,8 +17,12 @@
 //  - it will not send to the same person twice inside six days;
 //  - never their own logs, nothing they already logged, nothing across a block.
 //
-// With no RESEND_API_KEY configured it answers ok:{skipped} and sends
-// nothing, so it is safe to deploy before the mail provider exists.
+// Two switches stand between this and anyone's inbox:
+//  - no RESEND_API_KEY: it answers ok:{skipped} and sends nothing, so it is
+//    safe to deploy before the mail provider exists;
+//  - WEEKLY_LIVE must be "true" for the scheduled send to everyone. The
+//    founder's own test works without it. Setting up the provider and
+//    deciding to email every member are separate decisions.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type DigestLog, pickPieces } from "./digest.ts";
@@ -26,6 +30,7 @@ import { renderWeekly } from "./render.ts";
 
 const PUSH_SECRET = Deno.env.get("PUSH_SECRET");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const WEEKLY_LIVE = Deno.env.get("WEEKLY_LIVE") === "true";
 const MAIL_FROM = Deno.env.get("MAIL_FROM") ??
   "Everything Counts <weekly@everythingcountsapp.com>";
 // A postal address for the footer, if one is set. US law expects one on
@@ -68,6 +73,10 @@ Deno.serve(async (req) => {
 
   if (!RESEND_API_KEY && !dryRun) {
     return json({ ok: true, skipped: "resend-not-configured" });
+  }
+  // The send to everyone waits for an explicit go.
+  if (!WEEKLY_LIVE && !force && !dryRun) {
+    return json({ ok: true, skipped: "not-live" });
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
