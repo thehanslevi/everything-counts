@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { workIdFor } from "./url";
+import { slugify } from "@/lib/slug";
 import {
   logFromRow,
   profileFromRow,
@@ -811,4 +812,87 @@ export async function findSenderFor(
     .limit(1)
     .maybeSingle();
   return send?.sender_id ?? null;
+}
+
+// --- Sources and authors -------------------------------------------------------
+
+// Everything logged here from one publication, or by one author: the pieces
+// (most-read first), and the people who read them.
+export interface Catalog {
+  name: string; // as people most often wrote it
+  works: { log: Log; readerCount: number }[];
+  readers: { profile: Profile; pieces: number }[];
+}
+
+export async function getCatalog(
+  field: "source" | "author",
+  slug: string,
+): Promise<Catalog | undefined> {
+  const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
+
+  // Which logs carry this source or author. A slug folds case, accents and
+  // punctuation, which SQL can't compare on directly, so match in code over
+  // two light columns. Wants a stored slug column once the table is large.
+  const { data: candidates } = await supabase
+    .from("logs")
+    .select(`id, ${field}`)
+    .eq("shared", true)
+    .not(field, "is", null)
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  const ids = ((candidates ?? []) as unknown as Record<string, string>[])
+    .filter((row) => slugify(row[field]) === slug)
+    .map((row) => row.id)
+    .slice(0, 150);
+  if (ids.length === 0) return undefined;
+
+  const { data } = await supabase
+    .from("logs")
+    .select("*, profiles(id, handle, name, bio, link, avatar_url)")
+    .in("id", ids)
+    .order("created_at", { ascending: false });
+  const rows = ((data ?? []) as LogWithProfileRow[]).filter(
+    (row) => !blocked.has(row.user_id),
+  );
+  if (rows.length === 0) return undefined;
+
+  const names = new Map<string, number>();
+  const byWork = new Map<string, { log: Log; readers: Set<string> }>();
+  const byReader = new Map<string, { profile: Profile; works: Set<string> }>();
+  for (const row of rows) {
+    const log = logFromRow(row);
+    const name = (field === "source" ? log.source : log.author)?.trim();
+    if (name) names.set(name, (names.get(name) ?? 0) + 1);
+
+    const work = byWork.get(log.workId);
+    if (work) work.readers.add(log.userId);
+    else byWork.set(log.workId, { log, readers: new Set([log.userId]) });
+
+    const reader = byReader.get(log.userId);
+    if (reader) reader.works.add(log.workId);
+    else {
+      byReader.set(log.userId, {
+        profile: profileFromRow(row.profiles),
+        works: new Set([log.workId]),
+      });
+    }
+  }
+
+  return {
+    name: [...names.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? slug,
+    works: [...byWork.values()]
+      .map(({ log, readers }) => ({ log, readerCount: readers.size }))
+      .sort(
+        (a, b) =>
+          b.readerCount - a.readerCount ||
+          b.log.createdAt.localeCompare(a.log.createdAt),
+      ),
+    readers: [...byReader.values()]
+      .map(({ profile, works }) => ({ profile, pieces: works.size }))
+      .sort(
+        (a, b) =>
+          b.pieces - a.pieces || a.profile.name.localeCompare(b.profile.name),
+      ),
+  };
 }

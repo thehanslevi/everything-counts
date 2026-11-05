@@ -17,6 +17,7 @@ import { Avatar } from "@/components/Avatar";
 import { ReplyForm } from "@/components/ReplyForm";
 import { SendPieceForm } from "@/components/SendPieceForm";
 import { ViaMarker } from "@/components/ViaMarker";
+import { authorHref, sourceHref } from "@/lib/slug";
 import type { Log, Profile, Reply } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
@@ -164,7 +165,9 @@ export default async function WorkPage({
 
           {byline && (
             <p className="mt-4 border-t-2 border-foreground pt-2 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/75">
-              {byline}
+              <BylinePart text={work.author} href={authorHref(work.author)} />
+              {work.author && work.source && " · "}
+              <BylinePart text={work.source} href={sourceHref(work.source)} />
             </p>
           )}
 
@@ -285,6 +288,24 @@ export default async function WorkPage({
         </section>
       )}
     </main>
+  );
+}
+
+// The author or the source in a byline, linked to everything logged here by
+// or from them when there is a page for it.
+function BylinePart({
+  text,
+  href,
+}: {
+  text: string | null;
+  href: string | null;
+}) {
+  if (!text) return null;
+  if (!href) return <>{text}</>;
+  return (
+    <Link href={href} className="hover:text-accent hover:underline">
+      {text}
+    </Link>
   );
 }
 

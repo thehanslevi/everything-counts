@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { authorHref, sourceHref } from "@/lib/slug";
 
 const SITE = "https://everything-counts.vercel.app";
 
@@ -14,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     supabase.from("profiles").select("handle").limit(1000),
     supabase
       .from("logs")
-      .select("work_id, created_at")
+      .select("work_id, created_at, source, author")
       .eq("shared", true)
       .order("created_at", { ascending: false })
       .limit(2000),
@@ -43,5 +44,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(date),
   }));
 
-  return [...staticRoutes, ...profileRoutes, ...workRoutes];
+  // One entry per publication and per author with anything logged.
+  const catalogs = new Set<string>();
+  for (const l of logs ?? []) {
+    const source = sourceHref(l.source);
+    const author = authorHref(l.author);
+    if (source) catalogs.add(source);
+    if (author) catalogs.add(author);
+  }
+  const catalogRoutes: MetadataRoute.Sitemap = [...catalogs].map((path) => ({
+    url: `${SITE}${path}`,
+    changeFrequency: "weekly",
+  }));
+
+  return [...staticRoutes, ...profileRoutes, ...workRoutes, ...catalogRoutes];
 }

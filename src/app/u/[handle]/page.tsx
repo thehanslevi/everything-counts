@@ -17,6 +17,7 @@ import { Avatar } from "@/components/Avatar";
 import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
 import { monthKey, parsePeriod } from "@/lib/period";
+import { sourceHref } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -241,6 +242,22 @@ function StatsBand({
   const who = isSelf ? "You read" : `${name.split(" ")[0]} read`;
   const forms = Object.entries(y.byForm).sort(([, a], [, b]) => b - a);
 
+  // The three places this reading most often comes from, each linked to
+  // everything logged here from it.
+  const sourceCounts = new Map<string, number>();
+  for (const log of logs) {
+    if (log.source) {
+      sourceCounts.set(log.source, (sourceCounts.get(log.source) ?? 0) + 1);
+    }
+  }
+  const topSources = [...sourceCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .flatMap(([name]) => {
+      const href = sourceHref(name);
+      return href ? [{ name, href }] : [];
+    });
+
   return (
     <section className="mt-10 border-[3px] border-foreground bg-foreground p-6 sm:p-7">
       <p className="font-structural text-xs font-bold uppercase tracking-[0.2em] text-background/60">
@@ -262,6 +279,22 @@ function StatsBand({
         <p className="mt-1 font-structural text-[0.7rem] font-bold uppercase tracking-[0.14em] text-background/40">
           All time: {stats.allTime.pieces} things,{" "}
           {formatEstTime(stats.allTime.estMinutes)}
+        </p>
+      )}
+      {topSources.length > 0 && (
+        <p className="mt-3 font-structural text-[0.7rem] font-bold uppercase tracking-[0.14em] text-background/60">
+          Most from{" "}
+          {topSources.map(({ name, href }, i) => (
+            <span key={href}>
+              {i > 0 && " · "}
+              <Link
+                href={href}
+                className="text-background underline decoration-background/40 underline-offset-2 hover:decoration-accent"
+              >
+                {name}
+              </Link>
+            </span>
+          ))}
         </p>
       )}
     </section>
