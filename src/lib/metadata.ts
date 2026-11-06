@@ -9,6 +9,7 @@
 // URL alone tells us, plus `error` saying why, so logging never dead-ends.
 
 import { coerceUrl } from "@/lib/data/url";
+import { isWallTitle, publicationName, titleFromUrl } from "@/lib/links";
 
 export interface LinkMetadata {
   url: string;
@@ -18,6 +19,9 @@ export interface LinkMetadata {
   image: string | null; // lead image URL
   form: string | null; // best-guess form from the URL; the user can override
   error: string | null; // why the fetch fell short, when it did
+  // True when the page couldn't be read, so the title and source here come
+  // from the address alone: a starting point, not what the page says.
+  fromLink: boolean;
 }
 
 // Guess the form from where the piece lives, so saving is usually one tap.
@@ -126,6 +130,31 @@ function cleanSource(value: string | null): string | null {
   return trimmed;
 }
 
+// The byline, from wherever the page keeps it. Publishers disagree on the
+// tag, and some of these tags hold a profile address rather than a name
+// ("article:author" is one by its own spec), so the first value that reads
+// as a name wins. Bylines written "By Jane Doe" lose the "By".
+const AUTHOR_TAGS = [
+  "author",
+  "byl",
+  "parsely-author",
+  "sailthru.author",
+  "citation_author",
+  "article:author",
+  "og:article:author",
+  "twitter:creator",
+];
+
+function authorFrom(head: string): string | null {
+  for (const tag of AUTHOR_TAGS) {
+    const value = metaContent(head, [tag]);
+    if (!value || /^(https?:\/\/|www\.)/i.test(value)) continue;
+    const name = value.replace(/^by\s+/i, "").trim();
+    if (name) return name;
+  }
+  return null;
+}
+
 export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
   // Lenient in, strict out: scheme-less and link-in-text inputs are fixed up;
   // only something that can't be made into an http(s) URL is rejected.
@@ -133,15 +162,19 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
   if (!coerced) throw new Error("That does not look like a link.");
   const url = new URL(coerced);
 
-  // What we can say from the URL alone, for when the page itself won't talk.
+  // What we can say from the URL alone, for when the page itself won't
+  // talk: who publishes at that address, and the headline most addresses are
+  // built from.
+  const host = hostname(url.toString());
   const partial = (error: string): LinkMetadata => ({
     url: url.toString(),
-    title: null,
+    title: titleFromUrl(url.toString()),
     author: null,
-    source: cleanSource(hostname(url.toString())),
+    source: publicationName(host) ?? cleanSource(host),
     image: null,
     form: guessForm(url.toString()),
     error,
+    fromLink: true,
   });
 
   // Bound the fetch so a slow site cannot hang the request.
@@ -189,17 +222,18 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
       ? decodeEntities(head.match(/<title[^>]*>([^<]*)<\/title>/i)![1].trim())
       : null);
 
-  const author = metaContent(head, [
-    "author",
-    "article:author",
-    "og:article:author",
-    "twitter:creator",
-  ]);
+  // Some sites answer a visitor they take for a bot with a holding page
+  // ("Just a moment..."). That is the same refusal, with a 200 on it.
+  if (title && isWallTitle(title)) {
+    return partial("That site won't let us read it.");
+  }
 
-  const source = cleanSource(
-    metaContent(head, ["og:site_name", "application-name"]) ??
-      hostname(url.toString()),
-  );
+  const author = authorFrom(head);
+
+  const source =
+    cleanSource(metaContent(head, ["og:site_name", "application-name"])) ??
+    publicationName(host) ??
+    cleanSource(host);
 
   const image = metaContent(head, ["og:image", "twitter:image", "twitter:image:src"]);
 
@@ -211,5 +245,6 @@ export async function fetchLinkMetadata(rawUrl: string): Promise<LinkMetadata> {
     image,
     form: guessForm(url.toString()),
     error: null,
+    fromLink: false,
   };
 }

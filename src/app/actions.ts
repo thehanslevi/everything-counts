@@ -11,6 +11,7 @@ import {
   deleteLog,
   deleteReply,
   findSenderFor,
+  getAfterLogFacts,
   ownLogDateForUrl,
   reportContent,
   setBlocked,
@@ -23,7 +24,8 @@ import {
 import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { coerceUrl, workIdFor } from "@/lib/data/url";
 import { notify, notifyNewLog } from "@/lib/push";
-import { shareSigValid } from "@/lib/share";
+import { shareSigValid, shareUrl } from "@/lib/share";
+import { afterLogLine, localMonthStart } from "@/lib/afterlog";
 import { sendWeekly } from "@/lib/weekly";
 
 const SITE_URL = "https://everything-counts.vercel.app";
@@ -60,6 +62,8 @@ export interface ActionResult {
   error?: string;
   log?: Log;
   message?: string; // a plain outcome to show, when there is one
+  // After a save: the line for under the card, and the link to share it by.
+  after?: { line: string | null; shareUrl: string | null };
 }
 
 // --- Logging -----------------------------------------------------------------
@@ -106,21 +110,35 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
     if (viaHint) cookieStore.delete(VIA_COOKIE);
     revalidatePath("/");
     revalidatePath("/feed");
+
+    // What the form shows once it's saved: one true line about the log, and
+    // a link to pass the piece on. Gathered alongside the notifications; a
+    // failure here costs the line, never the save.
+    const tzOffset = Number(formData.get("tzOffset") ?? 0);
+    const lineReady = getAfterLogFacts(log, localMonthStart(new Date(), tzOffset))
+      .then((facts) => afterLogLine(facts, log.source))
+      .catch(() => null);
+
     // Push to people who also read this piece; the sender is told their own
     // way. Best-effort.
     await notifyNewLog({ ...log, excludeUserId: viaUserId });
-    if (viaUserId) {
-      const me = await myHandle();
-      if (me) {
-        await notify({
-          recipientUserId: viaUserId,
-          title: `@${me} logged “${log.title}”`,
-          body: "The piece you sent.",
-          url: `/work/${log.workId}`,
-        });
-      }
+    const me = await myHandle();
+    if (viaUserId && me) {
+      await notify({
+        recipientUserId: viaUserId,
+        title: `@${me} logged “${log.title}”`,
+        body: "The piece you sent.",
+        url: `/work/${log.workId}`,
+      });
     }
-    return { ok: true, log };
+    return {
+      ok: true,
+      log,
+      after: {
+        line: await lineReady,
+        shareUrl: me ? shareUrl(log.workId, me) : null,
+      },
+    };
   } catch (err) {
     return {
       ok: false,

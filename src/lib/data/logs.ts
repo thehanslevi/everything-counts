@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { workIdFor } from "./url";
 import { slugify } from "@/lib/slug";
+import type { AfterLogFacts } from "@/lib/afterlog";
 import {
   logFromRow,
   profileFromRow,
@@ -803,6 +804,68 @@ export async function addLog(input: NewLog): Promise<Log> {
 
   if (error) throw new Error(error.message);
   return logFromRow(data as LogRow);
+}
+
+// What the record can say about a log the moment it is saved: who else
+// logged the piece, and where it falls in the reader's own reading. Feeds
+// the one line shown under the saved card (see afterLogLine).
+export async function getAfterLogFacts(
+  log: Log,
+  monthStart: Date,
+): Promise<AfterLogFacts> {
+  const supabase = await createClient();
+  const [own, others, followed, blocked] = await Promise.all([
+    supabase
+      .from("logs")
+      .select("source, created_at")
+      .eq("user_id", log.userId)
+      .limit(5000),
+    supabase
+      .from("logs")
+      .select("user_id, profiles(handle)")
+      .eq("work_id", log.workId)
+      .eq("shared", true)
+      .neq("user_id", log.userId)
+      .order("created_at", { ascending: false })
+      .limit(200),
+    getFolloweeIds(log.userId),
+    viewerBlockedIds(),
+  ]);
+
+  const mine = (own.data ?? []) as { source: string | null; created_at: string }[];
+  const sourceSlug = log.source ? slugify(log.source) : "";
+  const monthStartTime = monthStart.getTime();
+
+  // One entry per other reader, people the reader follows first.
+  const seen = new Set<string>();
+  const readers: { handle: string; followed: boolean }[] = [];
+  for (const row of (others.data ?? []) as unknown as {
+    user_id: string;
+    profiles: { handle: string } | null;
+  }[]) {
+    if (!row.profiles || blocked.has(row.user_id) || seen.has(row.user_id)) {
+      continue;
+    }
+    seen.add(row.user_id);
+    readers.push({
+      handle: row.profiles.handle,
+      followed: followed.has(row.user_id),
+    });
+  }
+  readers.sort((a, b) => Number(b.followed) - Number(a.followed));
+
+  return {
+    alsoReadBy: readers.map((r) => r.handle),
+    // The new log is in `mine` already; max() covers a read that raced it.
+    total: Math.max(mine.length, 1),
+    thisMonth: mine.filter(
+      (row) => new Date(row.created_at).getTime() >= monthStartTime,
+    ).length,
+    fromSource: sourceSlug
+      ? mine.filter((row) => row.source && slugify(row.source) === sourceSlug)
+          .length
+      : 0,
+  };
 }
 
 // Who handed the signed-in user this piece, if anyone: the person whose

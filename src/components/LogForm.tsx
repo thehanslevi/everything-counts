@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { checkAlreadyLogged, createLog } from "@/app/actions";
-import { FORMS, type Form } from "@/lib/data/types";
+import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { coerceUrl } from "@/lib/data/url";
-import { Mark } from "@/components/Mark";
+import type { PageDetails } from "@/lib/links";
+import { LoggedPanel } from "@/components/LoggedPanel";
 
 const initialFields = {
   url: "",
@@ -27,20 +28,36 @@ const buttonClass =
 
 export function LogForm({
   initialUrl,
+  prefill,
   autoFocus,
 }: {
   initialUrl?: string;
+  // What the reader's own browser read from the page (the "Log this"
+  // bookmark, a phone's share sheet). Shown at once, and kept wherever our
+  // own fetch of the page comes back with less.
+  prefill?: PageDetails;
   autoFocus?: boolean;
 }) {
   const [fields, setFields] = useState({
     ...initialFields,
     url: initialUrl ?? "",
+    title: prefill?.title ?? "",
+    author: prefill?.author ?? "",
+    source: prefill?.source ?? "",
+    image: prefill?.image ?? "",
   });
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
+  // A finished save: the log, the line for under it, the link to share.
+  const [logged, setLogged] = useState<{
+    log: Log;
+    line: string | null;
+    shareUrl: string | null;
+  } | null>(null);
+  // After "Log another", the cursor goes back to the link field.
+  const [focusUrl, setFocusUrl] = useState(false);
   const [priorLog, setPriorLog] = useState<string | null>(null);
   const [canReadClipboard, setCanReadClipboard] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -71,6 +88,13 @@ export function LogForm({
   // path for "I have the link on my clipboard already".
   const urlRef = useRef(fields.url);
   urlRef.current = fields.url;
+  const titleRef = useRef(fields.title);
+  titleRef.current = fields.title;
+  // Which link the title, author, source and image on screen describe. A
+  // different link starts those over; the same link keeps what's there.
+  const detailsFor = useRef<string | null>(
+    prefill && Object.keys(prefill).length > 0 ? (initialUrl ?? null) : null,
+  );
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
       const t = e.target as HTMLElement | null;
@@ -103,7 +127,7 @@ export function LogForm({
 
   async function fetchMetadata(rawUrl: string) {
     setFetchError(null);
-    setSaved(null);
+    setLogged(null);
     setPriorLog(null);
     if (!rawUrl.trim()) {
       setFetchError("Paste a link first.");
@@ -116,6 +140,9 @@ export function LogForm({
       setFetchError("That doesn't look like a link.");
       return;
     }
+    const sameLink = detailsFor.current === url;
+    detailsFor.current = url;
+    const hadTitle = sameLink && titleRef.current.trim() !== "";
     setFields((prev) => ({ ...prev, url }));
     setFetching(true);
     // Advisory, in parallel with the metadata fetch: have you logged this
@@ -131,22 +158,38 @@ export function LogForm({
         setFetchError(data.error ?? "Could not read that page.");
         return;
       }
-      // Fill what came back; keep anything already typed where it didn't.
-      setFields((prev) => ({
-        ...prev,
-        title: data.title ?? prev.title,
-        author: data.author ?? prev.author,
-        source: data.source ?? prev.source,
-        image: data.image ?? prev.image,
-        // Best-guess form from the URL, still overridable in the dropdown.
-        form: (FORMS as readonly string[]).includes(data.form)
-          ? (data.form as Form)
-          : prev.form,
-      }));
+      // Fill what came back; keep anything already there where it didn't.
+      // When the page couldn't be read, what came back is a guess from the
+      // address, so anything the reader's browser sent or they typed wins.
+      const guess = Boolean(data.fromLink);
+      const pick = (got: string | null, had: string) =>
+        guess ? had || got || "" : (got ?? had);
+      setFields((prev) => {
+        const had = sameLink
+          ? prev
+          : { ...prev, title: "", author: "", source: "", image: "" };
+        return {
+          ...had,
+          title: pick(data.title, had.title),
+          author: pick(data.author, had.author),
+          source: pick(data.source, had.source),
+          image: pick(data.image, had.image),
+          // Best-guess form from the URL, still overridable in the dropdown.
+          form: (FORMS as readonly string[]).includes(data.form)
+            ? (data.form as Form)
+            : had.form,
+        };
+      });
       // Fetched either way: a page that won't talk to us still opens the
-      // fields, so a paywall is a title to type, not a wall.
+      // fields, so a paywall is a title to check, not a wall.
       setFetched(true);
-      if (data.error) setFetchError(`${data.error} Add the title and save.`);
+      if (data.error && !hadTitle) {
+        setFetchError(
+          data.title
+            ? `${data.error} The title is a guess from the link, so check it.`
+            : `${data.error} Add the title and save.`,
+        );
+      }
     } catch {
       setFetchError("Could not reach the metadata service.");
     } finally {
@@ -178,7 +221,6 @@ export function LogForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFormError(null);
-    setSaved(null);
 
     const data = new FormData();
     data.set("url", coerceUrl(fields.url) ?? fields.url.trim());
@@ -189,18 +231,41 @@ export function LogForm({
     data.set("form", fields.form);
     data.set("take", fields.take);
     data.set("rating", fields.rating);
+    // So "this month" means the reader's month, not the server's.
+    data.set("tzOffset", String(new Date().getTimezoneOffset()));
 
     startTransition(async () => {
       const result = await createLog(data);
-      if (!result.ok) {
+      if (!result.ok || !result.log) {
         setFormError(result.error ?? "Could not save the log.");
         return;
       }
-      setSaved(result.log?.title ?? fields.title);
+      setLogged({
+        log: result.log,
+        line: result.after?.line ?? null,
+        shareUrl: result.after?.shareUrl ?? null,
+      });
       setFields(initialFields);
+      detailsFor.current = null;
       setFetched(false);
+      setFetchError(null);
       setPriorLog(null);
     });
+  }
+
+  // Saved: the card takes the form's place until they ask for it back.
+  if (logged) {
+    return (
+      <LoggedPanel
+        log={logged.log}
+        line={logged.line}
+        shareUrl={logged.shareUrl}
+        onAnother={() => {
+          setLogged(null);
+          setFocusUrl(true);
+        }}
+      />
+    );
   }
 
   const showDetails = fetched || fields.title.length > 0;
@@ -222,7 +287,7 @@ export function LogForm({
             type="text"
             inputMode="url"
             autoComplete="off"
-            autoFocus={autoFocus}
+            autoFocus={autoFocus || focusUrl}
             placeholder="https://..."
             value={fields.url}
             onChange={(e) => update("url", e.target.value)}
@@ -375,15 +440,6 @@ export function LogForm({
               {isPending ? "Saving" : "Save to your log"}
             </button>
           </div>
-        </div>
-      )}
-
-      {saved && (
-        <div className="flex items-center gap-3 border border-foreground bg-[#f7f1e3] px-4 py-3">
-          <Mark className="block size-9 shrink-0 origin-center [animation:stamp_0.45s_cubic-bezier(0.2,0.8,0.2,1)]" />
-          <span className="font-structural text-xs font-bold uppercase tracking-[0.08em] text-foreground">
-            Logged “{saved}.”
-          </span>
         </div>
       )}
     </form>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/lib/data/logs";
 import { coerceUrl } from "@/lib/data/url";
+import { pageDetails } from "@/lib/links";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LogForm } from "@/components/LogForm";
 import { Bookmarklet } from "@/components/Bookmarklet";
@@ -15,6 +16,11 @@ export const dynamic = "force-dynamic";
 // (whose /?logurl= is redirected here by the home page). Metadata is fetched
 // automatically, so arriving with a URL means: one tap on Save.
 //
+// The bookmarklet also sends what it read from the page the reader had open
+// (title, author, source, image), and a share sheet sends a title. Those
+// fill the form at once and cover the publications that won't let our own
+// fetch in.
+//
 // Share targets don't agree on where the link goes — some put it in `url`,
 // others (Substack's Android share, for one) bury it in `text`, sometimes
 // with the title in front of it. coerceUrl digs the link out of either.
@@ -25,7 +31,15 @@ function sharedUrl(params: { url?: string; text?: string }): string | undefined 
 export default async function LogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ url?: string; text?: string; new?: string }>;
+  searchParams: Promise<{
+    url?: string;
+    text?: string;
+    new?: string;
+    title?: string;
+    author?: string;
+    source?: string;
+    image?: string;
+  }>;
 }) {
   const [{ profile, hasSession }, params] = await Promise.all([
     getSessionProfile(),
@@ -33,11 +47,14 @@ export default async function LogPage({
   ]);
   const shared = sharedUrl(params);
   const isNew = params.new === "1";
+  const details = shared ? pageDetails(params, shared) : {};
 
-  // Signed out: through sign-in and straight back here, URL intact.
+  // Signed out: through sign-in and straight back here, with the link and
+  // whatever came with it intact.
   if (!profile) {
     if (hasSession) redirect("/welcome");
-    const dest = shared ? `/log?url=${encodeURIComponent(shared)}` : "/log";
+    const back = new URLSearchParams(shared ? { url: shared, ...details } : {});
+    const dest = back.size > 0 ? `/log?${back}` : "/log";
     redirect(`/signin?next=${encodeURIComponent(dest)}`);
   }
 
@@ -56,7 +73,7 @@ export default async function LogPage({
               recently. Paste the link.
             </p>
           )}
-          <LogForm initialUrl={shared} autoFocus={!shared} />
+          <LogForm initialUrl={shared} prefill={details} autoFocus={!shared} />
         </div>
       </section>
 
