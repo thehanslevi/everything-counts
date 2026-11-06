@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  getDailyPiece,
   getFeed,
   getRecentActivity,
   getSessionProfile,
 } from "@/lib/data/logs";
+import { dayNumber, nothingNew } from "@/lib/daily";
+import type { FeedItem } from "@/lib/data/types";
+import { DailyPiece } from "@/components/DailyPiece";
 import { LogCard } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -25,6 +29,15 @@ export default async function Feed() {
   const items = await getFeed(profile.id);
   const showingNetwork = items.length === 0;
   const display = showingNetwork ? await getRecentActivity() : items;
+
+  // A day with nothing new from anyone else: lead with one piece from the
+  // record that this reader hasn't logged. It changes daily, so the screen
+  // does too. The three cards they would see first are left out of the
+  // running, and the chosen log isn't repeated in the list under it.
+  const daily = await pieceForToday(profile.id, display);
+  const list = daily
+    ? display.filter((item) => item.log.id !== daily.log.id)
+    : display;
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
@@ -62,8 +75,9 @@ export default async function Feed() {
                 </Link>
               </p>
             )}
+            {daily && <DailyPiece item={daily} />}
             <ol className="mt-10 flex flex-col gap-12">
-              {display.map(({ log, user }, i) => (
+              {list.map(({ log, user }, i) => (
                 <li
                   key={log.id}
                   className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
@@ -76,5 +90,22 @@ export default async function Feed() {
         )}
       </section>
     </main>
+  );
+}
+
+async function pieceForToday(
+  viewerId: string,
+  display: FeedItem[],
+): Promise<FeedItem | null> {
+  const now = new Date();
+  const recent = display.map(({ log }) => ({
+    userId: log.userId,
+    createdAt: log.createdAt,
+  }));
+  if (!nothingNew(recent, viewerId, now)) return null;
+  return getDailyPiece(
+    viewerId,
+    dayNumber(now),
+    display.slice(0, 3).map((item) => item.log.workId),
   );
 }

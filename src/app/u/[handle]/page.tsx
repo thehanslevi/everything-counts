@@ -12,8 +12,8 @@ import {
 import { toggleWeeklyEmail } from "@/app/actions";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { FollowButton } from "@/components/FollowButton";
-import { LogCard, formColor } from "@/components/LogCard";
-import { PinButton } from "@/components/PinButton";
+import { formColor } from "@/components/LogCard";
+import { RecordList } from "@/components/RecordList";
 import { SafetyMenu } from "@/components/SafetyMenu";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
@@ -192,27 +192,7 @@ export default async function ProfilePage({
             Nothing logged yet.
           </p>
         ) : (
-          <ol className="mt-10 flex flex-col gap-12">
-            {logs.map((log, i) => (
-              <li
-                key={log.id}
-                className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
-              >
-                <LogCard log={log} />
-                {isSelf && (
-                  <div className="mt-1 flex items-center justify-end gap-5">
-                    <PinButton logId={log.id} pinned={Boolean(log.pinnedAt)} />
-                    <Link
-                      href={`/log/${log.id}/edit`}
-                      className="font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/40 hover:text-accent"
-                    >
-                      Edit
-                    </Link>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
+          <RecordList logs={logs} own={isSelf} />
         )}
       </section>
         </>

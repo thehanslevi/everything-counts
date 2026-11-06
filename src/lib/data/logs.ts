@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { workIdFor } from "./url";
 import { slugify } from "@/lib/slug";
 import type { AfterLogFacts } from "@/lib/afterlog";
+import { pickDaily } from "@/lib/daily";
 import {
   logFromRow,
   profileFromRow,
@@ -613,6 +614,70 @@ export async function getRecentActivity(limit = 20): Promise<FeedItem[]> {
     .map((row) => ({ log: logFromRow(row), user: profileFromRow(row.profiles) }));
   await attachSenders(items.map((item) => item.log));
   return items;
+}
+
+// One piece from everyone's shared record that this reader hasn't logged,
+// for the top of the feed on a day with nothing new in it (see daily.ts).
+// `avoidWorkIds` are pieces already at the top of their screen. Reads two
+// light columns across the record; wants a narrower query once the table
+// is large.
+export async function getDailyPiece(
+  viewerId: string,
+  day: number,
+  avoidWorkIds: string[] = [],
+): Promise<FeedItem | null> {
+  const supabase = await createClient();
+  const [others, own, followed, blocked] = await Promise.all([
+    supabase
+      .from("logs")
+      .select("id, work_id, user_id")
+      .eq("shared", true)
+      .neq("user_id", viewerId)
+      .order("created_at", { ascending: false })
+      .limit(3000),
+    supabase.from("logs").select("work_id").eq("user_id", viewerId).limit(5000),
+    getFolloweeIds(viewerId),
+    getBlockedIds(viewerId),
+  ]);
+
+  const logged = new Set(
+    ((own.data ?? []) as { work_id: string }[]).map((row) => row.work_id),
+  );
+  const avoid = new Set(avoidWorkIds);
+
+  // One log to stand for each piece: from someone the reader follows when
+  // there is one, otherwise the newest.
+  const standIn = new Map<string, { id: string; followed: boolean }>();
+  for (const row of (others.data ?? []) as {
+    id: string;
+    work_id: string;
+    user_id: string;
+  }[]) {
+    if (blocked.has(row.user_id) || logged.has(row.work_id)) continue;
+    const isFollowed = followed.has(row.user_id);
+    const current = standIn.get(row.work_id);
+    if (!current || (isFollowed && !current.followed)) {
+      standIn.set(row.work_id, { id: row.id, followed: isFollowed });
+    }
+  }
+
+  // Leave out what they can already see, unless that is all there is.
+  const all = [...standIn.keys()];
+  const unseen = all.filter((workId) => !avoid.has(workId));
+  const workId = pickDaily(unseen.length > 0 ? unseen : all, day);
+  const chosen = workId ? standIn.get(workId) : undefined;
+  if (!chosen) return null;
+
+  const { data } = await supabase
+    .from("logs")
+    .select("*, profiles(id, handle, name, bio, link, avatar_url)")
+    .eq("id", chosen.id)
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as LogWithProfileRow;
+  const log = logFromRow(row);
+  await attachSenders([log]);
+  return { log, user: profileFromRow(row.profiles) };
 }
 
 // Resolve a work: its pooled logs (newest first, with loggers) plus an
