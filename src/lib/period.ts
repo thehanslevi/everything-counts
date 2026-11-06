@@ -1,7 +1,10 @@
 import type { Log } from "@/lib/data/types";
+import { FALLBACK_ZONE, dayIn } from "@/lib/dates";
 
 // A stretch of someone's record: one month ("2026-10") or one year ("2026").
-// Boundaries are UTC, matching how log dates are stored and shown.
+// Which logs fall in it depends on the reader's time zone, the same as the
+// dates on their cards (see logsIn). `start` and `end` are the UTC bounds,
+// kept for stepping between periods.
 
 export interface Period {
   kind: "month" | "year";
@@ -72,11 +75,17 @@ export function parsePeriod(raw: string): Period | null {
   };
 }
 
-export function logsIn(logs: Log[], period: Period): Log[] {
-  const from = period.start.getTime();
-  const to = period.end.getTime();
+// The logs made in this month or year, by the calendar of `timeZone`.
+export function logsIn(
+  logs: Log[],
+  period: Period,
+  timeZone: string = FALLBACK_ZONE,
+): Log[] {
+  const year = period.start.getUTCFullYear();
+  const month = period.start.getUTCMonth() + 1;
   return logs.filter((log) => {
-    const t = new Date(log.createdAt).getTime();
-    return t >= from && t < to;
+    const local = dayIn(log.createdAt, timeZone);
+    if (!local || local.year !== year) return false;
+    return period.kind === "year" || local.month === month;
   });
 }

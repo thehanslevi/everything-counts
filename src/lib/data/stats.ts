@@ -1,4 +1,5 @@
 import type { Form, Log } from "./types";
+import { yearIn } from "@/lib/dates";
 
 // The anchor metric (the spec's open question, resolved as the blended unit it
 // leaned toward): pieces + estimated time. Pieces honors the act of reading
@@ -41,10 +42,17 @@ export function tally(logs: Log[]): ReadingStats {
   return { pieces: logs.length, estMinutes, byForm };
 }
 
-export function computeStats(logs: Log[], now = new Date()): ProfileStats {
-  const year = now.getFullYear();
+// "This year" is the reader's year: pass their `timeZone` so a piece logged
+// on New Year's Eve doesn't land in the year after. Without one, the
+// runtime's zone (UTC on the server).
+export function computeStats(
+  logs: Log[],
+  timeZone?: string,
+  now = new Date(),
+): ProfileStats {
+  const year = yearIn(now, timeZone);
   const thisYear = logs.filter(
-    (log) => new Date(log.createdAt).getFullYear() === year,
+    (log) => yearIn(log.createdAt, timeZone) === year,
   );
   return { allTime: tally(logs), thisYear: tally(thisYear), year };
 }

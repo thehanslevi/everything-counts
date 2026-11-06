@@ -5,7 +5,13 @@ import { LogCard } from "@/components/LogCard";
 // The day's piece at the top of the feed, set apart on ink so it doesn't
 // read as the newest log. The card says whose record it came from; under it,
 // two ways on.
-export function DailyPiece({ item }: { item: FeedItem }) {
+export function DailyPiece({
+  item,
+  timeZone,
+}: {
+  item: FeedItem;
+  timeZone: string;
+}) {
   const { log, user } = item;
   return (
     <section
@@ -25,7 +31,7 @@ export function DailyPiece({ item }: { item: FeedItem }) {
       </div>
 
       <div className="mt-4">
-        <LogCard log={log} logger={user} />
+        <LogCard log={log} logger={user} timeZone={timeZone} />
       </div>
 
       {log.url && (

@@ -4,13 +4,14 @@
 
 import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { slugify } from "@/lib/slug";
+import { yearIn } from "@/lib/dates";
 
 // What the browser needs to know about a log to filter it. The card itself
 // is drawn on the server and handed over alongside.
 export interface RecordEntry {
   id: string;
   form: Form;
-  year: number; // UTC, the same day the card prints
+  year: number; // in the reader's zone, the same day the card prints
   pub: string | null; // the publication, folded the way source pages fold it
   text: string; // everything searchable, folded
 }
@@ -47,12 +48,11 @@ export function fold(value: string): string {
     .trim();
 }
 
-export function entryFor(log: Log): RecordEntry {
-  const year = new Date(log.createdAt).getUTCFullYear();
+export function entryFor(log: Log, timeZone?: string): RecordEntry {
   return {
     id: log.id,
     form: log.form,
-    year: Number.isNaN(year) ? 0 : year,
+    year: yearIn(log.createdAt, timeZone),
     pub: (log.source && slugify(log.source)) || null,
     text: fold(
       [log.title, log.author, log.source, log.take, log.form]
@@ -64,13 +64,13 @@ export function entryFor(log: Log): RecordEntry {
 
 // The choices a record offers. A publication typed two ways counts once,
 // under the spelling used most.
-export function facetsOf(logs: Log[]): RecordFacets {
+export function facetsOf(logs: Log[], timeZone?: string): RecordFacets {
   const forms = new Map<Form, number>();
   const years = new Map<number, number>();
   const pubs = new Map<string, { names: Map<string, number>; count: number }>();
 
   for (const log of logs) {
-    const entry = entryFor(log);
+    const entry = entryFor(log, timeZone);
     forms.set(entry.form, (forms.get(entry.form) ?? 0) + 1);
     if (entry.year) years.set(entry.year, (years.get(entry.year) ?? 0) + 1);
     if (entry.pub && log.source) {

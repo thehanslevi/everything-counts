@@ -7,6 +7,7 @@ import {
   getSessionProfile,
 } from "@/lib/data/logs";
 import { dayNumber, nothingNew } from "@/lib/daily";
+import { getTimeZone } from "@/lib/timezone";
 import type { FeedItem } from "@/lib/data/types";
 import { DailyPiece } from "@/components/DailyPiece";
 import { LogCard } from "@/components/LogCard";
@@ -31,10 +32,11 @@ export default async function Feed() {
   const display = showingNetwork ? await getRecentActivity() : items;
 
   // A day with nothing new from anyone else: lead with one piece from the
-  // record that this reader hasn't logged. It changes daily, so the screen
-  // does too. The three cards they would see first are left out of the
+  // record that this reader hasn't logged. It changes at their midnight, so
+  // the screen does too. The three cards they would see first are left out of the
   // running, and the chosen log isn't repeated in the list under it.
-  const daily = await pieceForToday(profile.id, display);
+  const timeZone = await getTimeZone();
+  const daily = await pieceForToday(profile.id, display, timeZone);
   const list = daily
     ? display.filter((item) => item.log.id !== daily.log.id)
     : display;
@@ -75,14 +77,14 @@ export default async function Feed() {
                 </Link>
               </p>
             )}
-            {daily && <DailyPiece item={daily} />}
+            {daily && <DailyPiece item={daily} timeZone={timeZone} />}
             <ol className="mt-10 flex flex-col gap-12">
               {list.map(({ log, user }, i) => (
                 <li
                   key={log.id}
                   className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
                 >
-                  <LogCard log={log} logger={user} />
+                  <LogCard log={log} logger={user} timeZone={timeZone} />
                 </li>
               ))}
             </ol>
@@ -96,6 +98,7 @@ export default async function Feed() {
 async function pieceForToday(
   viewerId: string,
   display: FeedItem[],
+  timeZone: string,
 ): Promise<FeedItem | null> {
   const now = new Date();
   const recent = display.map(({ log }) => ({
@@ -105,7 +108,7 @@ async function pieceForToday(
   if (!nothingNew(recent, viewerId, now)) return null;
   return getDailyPiece(
     viewerId,
-    dayNumber(now),
+    dayNumber(now, timeZone),
     display.slice(0, 3).map((item) => item.log.workId),
   );
 }

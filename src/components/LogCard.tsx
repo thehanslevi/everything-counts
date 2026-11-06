@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Form, Log, Profile } from "@/lib/data/types";
 import { Avatar } from "@/components/Avatar";
+import { formatDay } from "@/lib/dates";
 
 // The log card: the single repeating unit across the product. Loud Japanese-
 // poster treatment — thick ink frames on a saturated field, a clashing color
@@ -10,17 +11,10 @@ import { Avatar } from "@/components/Avatar";
 //
 // On the solo profile it renders without attribution. In the social feed, pass
 // `logger` to show whose log it is above the card.
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : dateFormatter.format(d).toUpperCase();
-}
+//
+// The date is the day the piece was logged where the reader is. A page drawn
+// on the server passes the reader's `timeZone` (see lib/timezone.ts); drawn
+// in the browser it can be left out, and the device's own zone is used.
 
 // Each form claims one of the clashing accents. The clash is the point: no
 // form is privileged, but every form is loud.
@@ -62,7 +56,15 @@ export function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function LogCard({ log, logger }: { log: Log; logger?: Profile }) {
+export function LogCard({
+  log,
+  logger,
+  timeZone,
+}: {
+  log: Log;
+  logger?: Profile;
+  timeZone?: string;
+}) {
   const byline = [log.author, log.source].filter(Boolean).join(" · ");
 
   return (
@@ -105,7 +107,7 @@ export function LogCard({ log, logger }: { log: Log; logger?: Profile }) {
             {log.form}
           </span>
           <time className="self-center px-3 py-2 font-structural text-[0.65rem] font-bold uppercase tracking-[0.14em] text-foreground/60">
-            {formatDate(log.createdAt)}
+            {formatDay(log.createdAt, timeZone)}
           </time>
         </div>
 

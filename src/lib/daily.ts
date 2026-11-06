@@ -4,15 +4,17 @@
 // (getDailyPiece), this decides whether there is anything new and which
 // piece the day gets.
 
-const HOUR = 60 * 60 * 1000;
-const DAY = 24 * HOUR;
+import { dayIn } from "@/lib/dates";
 
-// The day turns at 09:00 UTC: about 4am in New York and 1am in Los Angeles,
-// so the piece changes overnight for readers there, not at dinner.
-const DAY_TURNS_AT = 9 * HOUR;
+const DAY = 24 * 60 * 60 * 1000;
 
-export function dayNumber(now: Date): number {
-  return Math.floor((now.getTime() - DAY_TURNS_AT) / DAY);
+// Days are the reader's own: the piece changes at midnight where they are.
+// The number counts calendar days, so it goes up by one each midnight in
+// that zone whatever the clocks did.
+export function dayNumber(now: Date, timeZone?: string): number {
+  const local = dayIn(now, timeZone);
+  if (!local) return 0;
+  return Math.floor(Date.UTC(local.year, local.month - 1, local.day) / DAY);
 }
 
 // True when the list holds nothing from someone else in the last 24 hours.

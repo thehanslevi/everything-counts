@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { getLogsByUser, getProfileByHandle } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CardActions } from "@/components/CardActions";
-import { logsIn, monthKey, parsePeriod } from "@/lib/period";
+import { logsIn, parsePeriod } from "@/lib/period";
+import { monthKeyIn, yearIn } from "@/lib/dates";
+import { getTimeZone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -33,22 +35,25 @@ export default async function CardPage({ params }: { params: Params }) {
   const person = await getProfileByHandle(handle);
   if (!person) notFound();
 
-  const all = await getLogsByUser(person.id);
-  const count = logsIn(all, period).length;
-  const src = `/u/${person.handle}/card/${period.key}/image`;
+  // Months and years are the reader's own: a piece logged late on the 30th
+  // belongs to that month where they are. The poster is asked for in the
+  // same zone, so the picture and this page count the same pieces.
+  const [all, timeZone] = await Promise.all([
+    getLogsByUser(person.id),
+    getTimeZone(),
+  ]);
+  const count = logsIn(all, period, timeZone).length;
+  const src = `/u/${person.handle}/card/${period.key}/image?tz=${encodeURIComponent(timeZone)}`;
 
   // Step to the neighbors only where there is something to see: not into
   // the future, not before the first log.
-  const nowKey =
+  const keyOf = (when: string | Date) =>
     period.kind === "month"
-      ? monthKey(new Date())
-      : String(new Date().getUTCFullYear());
+      ? monthKeyIn(when, timeZone)
+      : String(yearIn(when, timeZone));
+  const nowKey = keyOf(new Date());
   const oldest = all[all.length - 1];
-  const firstKey = oldest
-    ? period.kind === "month"
-      ? monthKey(new Date(oldest.createdAt))
-      : String(new Date(oldest.createdAt).getUTCFullYear())
-    : nowKey;
+  const firstKey = oldest ? keyOf(oldest.createdAt) : nowKey;
   const hasPrev = period.prevKey >= firstKey;
   const hasNext = period.nextKey <= nowKey;
 

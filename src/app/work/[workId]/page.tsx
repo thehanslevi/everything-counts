@@ -19,6 +19,8 @@ import { SendPieceForm } from "@/components/SendPieceForm";
 import { ViaMarker } from "@/components/ViaMarker";
 import { authorHref, sourceHref } from "@/lib/slug";
 import { shareSigValid, shareUrl } from "@/lib/share";
+import { formatDay } from "@/lib/dates";
+import { getTimeZone } from "@/lib/timezone";
 import type { Log, Profile, Reply } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
@@ -40,17 +42,6 @@ export async function generateMetadata({
   };
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : dateFormatter.format(d).toUpperCase();
-}
-
 export default async function WorkPage({
   params,
   searchParams,
@@ -62,10 +53,11 @@ export default async function WorkPage({
     params,
     searchParams,
   ]);
-  const [work, { profile: viewer }, alsoRead] = await Promise.all([
+  const [work, { profile: viewer }, alsoRead, timeZone] = await Promise.all([
     getWork(workId),
     getSessionProfile(),
     getAlsoRead(workId),
+    getTimeZone(),
   ]);
   if (!work) notFound();
 
@@ -248,6 +240,7 @@ export default async function WorkPage({
                 user={work.loggers.get(log.userId)}
                 replies={replies.get(log.id) ?? []}
                 viewer={viewer}
+                timeZone={timeZone}
               />
             </li>
           ))}
@@ -327,11 +320,13 @@ function PooledLog({
   user,
   replies,
   viewer,
+  timeZone,
 }: {
   log: Log;
   user?: Profile;
   replies: Reply[];
   viewer: Profile | null;
+  timeZone: string;
 }) {
   const isOwner = viewer?.id === log.userId;
   const alreadyReplied = viewer
@@ -365,7 +360,7 @@ function PooledLog({
           )}
         </span>
         <time className="shrink-0 font-structural text-[0.65rem] font-medium uppercase tracking-[0.1em] text-background/60">
-          {formatDate(log.createdAt)}
+          {formatDay(log.createdAt, timeZone)}
         </time>
       </div>
 

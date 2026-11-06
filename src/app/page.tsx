@@ -11,6 +11,7 @@ import { RecordList } from "@/components/RecordList";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { BulkImport } from "@/components/BulkImport";
+import { getTimeZone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,10 @@ export default async function Home({
   }
 
   if (!profile) {
-    const recent = await getRecentActivity();
+    const [recent, timeZone] = await Promise.all([
+      getRecentActivity(),
+      getTimeZone(),
+    ]);
     return (
       <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
         <SiteHeader />
@@ -70,7 +74,7 @@ export default async function Home({
                   key={log.id}
                   className={i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.6deg]"}
                 >
-                  <LogCard log={log} logger={user} />
+                  <LogCard log={log} logger={user} timeZone={timeZone} />
                 </li>
               ))}
             </ol>
@@ -80,7 +84,10 @@ export default async function Home({
     );
   }
 
-  const logs = await getLogsByUser(profile.id);
+  const [logs, timeZone] = await Promise.all([
+    getLogsByUser(profile.id),
+    getTimeZone(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
@@ -122,7 +129,7 @@ export default async function Home({
             Paste a link above to log your first piece.
           </EmptyState>
         ) : (
-          <RecordList logs={logs} own />
+          <RecordList logs={logs} own timeZone={timeZone} />
         )}
       </section>
     </main>

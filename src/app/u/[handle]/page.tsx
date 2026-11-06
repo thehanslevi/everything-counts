@@ -19,7 +19,9 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
 import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
-import { monthKey, parsePeriod } from "@/lib/period";
+import { parsePeriod } from "@/lib/period";
+import { monthKeyIn } from "@/lib/dates";
+import { getTimeZone } from "@/lib/timezone";
 import { sourceHref } from "@/lib/slug";
 import type { Log } from "@/lib/data/types";
 
@@ -52,10 +54,11 @@ export default async function ProfilePage({
   const person = await getProfileByHandle(handle);
   if (!person) notFound();
 
-  const [{ profile: viewer }, logs, counts] = await Promise.all([
+  const [{ profile: viewer }, logs, counts, timeZone] = await Promise.all([
     getSessionProfile(),
     getLogsByUser(person.id),
     getFollowCounts(person.id),
+    getTimeZone(),
   ]);
 
   const isSelf = viewer?.id === person.id;
@@ -173,9 +176,20 @@ export default async function ProfilePage({
       <Favorites logs={logs} />
 
       {logs.length > 0 && (
-        <StatsBand logs={logs} isSelf={isSelf} name={person.name} />
+        <StatsBand
+          logs={logs}
+          isSelf={isSelf}
+          name={person.name}
+          timeZone={timeZone}
+        />
       )}
-      {logs.length > 0 && <CardLinks handle={person.handle} latest={logs[0].createdAt} />}
+      {logs.length > 0 && (
+        <CardLinks
+          handle={person.handle}
+          latest={logs[0].createdAt}
+          timeZone={timeZone}
+        />
+      )}
 
       <section className="mt-16">
         <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">
@@ -192,7 +206,7 @@ export default async function ProfilePage({
             Nothing logged yet.
           </p>
         ) : (
-          <RecordList logs={logs} own={isSelf} />
+          <RecordList logs={logs} own={isSelf} timeZone={timeZone} />
         )}
       </section>
         </>
@@ -282,8 +296,16 @@ function Favorites({ logs }: { logs: Log[] }) {
 
 // The record as a poster: the most recent month with reading in it, and
 // that year. Each opens a card made to be saved or sent.
-function CardLinks({ handle, latest }: { handle: string; latest: string }) {
-  const month = parsePeriod(monthKey(new Date(latest)));
+function CardLinks({
+  handle,
+  latest,
+  timeZone,
+}: {
+  handle: string;
+  latest: string;
+  timeZone: string;
+}) {
+  const month = parsePeriod(monthKeyIn(latest, timeZone));
   if (!month) return null;
   const linkClass =
     "border-b-2 border-foreground pb-0.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-accent hover:text-accent";
@@ -305,12 +327,14 @@ function StatsBand({
   logs,
   isSelf,
   name,
+  timeZone,
 }: {
   logs: Parameters<typeof computeStats>[0];
   isSelf: boolean;
   name: string;
+  timeZone: string;
 }) {
-  const stats = computeStats(logs);
+  const stats = computeStats(logs, timeZone);
   const y = stats.thisYear;
   const who = isSelf ? "You read" : `${name.split(" ")[0]} read`;
   const forms = Object.entries(y.byForm).sort(([, a], [, b]) => b - a);

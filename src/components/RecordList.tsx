@@ -9,18 +9,27 @@ import { RecordBrowser } from "@/components/RecordBrowser";
 // through it. Home and the profile page both show it. The cards are drawn
 // here; RecordBrowser gets each one with the few facts it filters on.
 // Expects at least one log: an empty record is the page's to word.
-export function RecordList({ logs, own }: { logs: Log[]; own: boolean }) {
+// `timeZone` is the reader's, for the dates on the cards and the year filter.
+export function RecordList({
+  logs,
+  own,
+  timeZone,
+}: {
+  logs: Log[];
+  own: boolean;
+  timeZone: string;
+}) {
   return (
     <RecordBrowser
       // A different person's record starts with nothing chosen.
       key={logs[0]?.userId}
       own={own}
-      facets={facetsOf(logs)}
+      facets={facetsOf(logs, timeZone)}
       entries={logs.map((log) => ({
-        ...entryFor(log),
+        ...entryFor(log, timeZone),
         node: (
           <>
-            <LogCard log={log} />
+            <LogCard log={log} timeZone={timeZone} />
             {own && (
               <div className="mt-1 flex items-center justify-end gap-5">
                 <PinButton logId={log.id} pinned={Boolean(log.pinnedAt)} />

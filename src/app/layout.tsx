@@ -4,6 +4,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { BottomNav } from "@/components/BottomNav";
 import { PushRegistrar } from "@/components/PushRegistrar";
+import { TimeZoneSync } from "@/components/TimeZoneSync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -61,6 +62,7 @@ export default function RootLayout({
         {children}
         <BottomNav />
         <PushRegistrar />
+        <TimeZoneSync />
         <Analytics />
       </body>
     </html>
