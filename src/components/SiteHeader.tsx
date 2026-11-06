@@ -1,7 +1,12 @@
 import Link from "next/link";
-import { getSessionProfile, getUnreadNotificationCount } from "@/lib/data/logs";
+import {
+  getSavedTimeZone,
+  getSessionProfile,
+  getUnreadNotificationCount,
+} from "@/lib/data/logs";
 import { Mark } from "@/components/Mark";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { TimeZoneSave } from "@/components/TimeZoneSave";
 
 // The masthead and section nav, shared across pages. Loud Japanese-poster
 // treatment (Yokoo mode). Session-aware: signed-out visitors get a sign-in
@@ -27,10 +32,16 @@ export async function SiteHeader({
   variant?: "full" | "minimal";
 }) {
   const { profile, hasSession } = await getSessionProfile();
-  const unread = profile ? await getUnreadNotificationCount(profile.id) : 0;
+  const [unread, savedZone] = profile
+    ? await Promise.all([
+        getUnreadNotificationCount(profile.id),
+        getSavedTimeZone(),
+      ])
+    : [0, null];
 
   return (
     <header>
+      {profile && <TimeZoneSave saved={savedZone} />}
       <div className="flex items-start justify-between gap-4 sm:gap-6">
         <Link href="/" aria-label="Everything Counts home">
           <h1 className="font-structural text-[2.35rem] font-black uppercase leading-[0.86] tracking-[-0.02em] text-foreground sm:text-7xl">

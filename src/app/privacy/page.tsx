@@ -19,7 +19,7 @@ export default function Privacy() {
 
         <div className="flex flex-col gap-6 p-6 font-serif text-[15px] leading-[1.65] text-foreground/85 sm:p-8">
           <p className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground/50">
-            Last updated July 2026
+            Last updated November 2026
           </p>
 
           <div>
@@ -66,7 +66,10 @@ export default function Privacy() {
             <p className="mt-2">
               Data is stored in a Postgres database hosted by Supabase in the
               United States. Authentication cookies keep you signed in; there
-              are no third-party cookies.
+              are no third-party cookies. One more cookie holds the time zone
+              your device is set to, so dates show in it. If you have an
+              account, it is also saved with your email settings, so the
+              weekly email can date pieces the same way.
             </p>
           </div>
 

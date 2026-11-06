@@ -105,17 +105,37 @@ export function namesLine(handles: string[]): string {
   return `${at[0]}, ${at[1]} and ${at.length - 2} others`;
 }
 
-const DAY_FMT = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-const SENT_FMT = new Intl.DateTimeFormat("en-US", {
-  weekday: "long",
-  month: "long",
-  day: "numeric",
-  timeZone: "UTC",
-});
+// Dates go by the reader's time zone, the one their device last reported
+// to the app (email_prefs.time_zone), so a piece logged at 9pm where they
+// are carries that day, as it does on their screen. UTC until a device has
+// said.
+export function isTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 64) {
+    return false;
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function dayFormat(timeZone: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone,
+  });
+}
+function sentFormat(timeZone: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone,
+  });
+}
 
 // A take can run to a thousand characters; an email shows its opening.
 function clipTake(take: string): string {
@@ -131,6 +151,7 @@ export function renderWeekly({
   profileUrl,
   postalAddress,
   now,
+  timeZone = "UTC",
 }: {
   pieces: Piece[];
   site: string; // origin for piece links, no trailing slash
@@ -139,7 +160,10 @@ export function renderWeekly({
   profileUrl: string;
   postalAddress: string; // "" to leave it out
   now: Date;
+  timeZone?: string; // the reader's, for every date in the email
 }): { subject: string; html: string; text: string } {
+  const DAY_FMT = dayFormat(timeZone);
+  const SENT_FMT = sentFormat(timeZone);
   // Clean every piece's text once, up front.
   pieces = pieces.map((p) => ({
     ...p,

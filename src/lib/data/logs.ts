@@ -1110,6 +1110,36 @@ export async function setWeeklyEmail(on: boolean): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// The time zone this person's device last reported, saved so the weekly
+// email can date pieces the way the app does for them. Null until a device
+// has said.
+export async function getSavedTimeZone(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("email_prefs")
+    .select("time_zone")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return data?.time_zone ?? null;
+}
+
+export async function saveTimeZone(timeZone: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const { error } = await supabase
+    .from("email_prefs")
+    .update({ time_zone: timeZone, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+}
+
 // Turn the weekly email off for whoever holds this token (from the link in
 // an email). Works signed out; can only ever turn it off. Says nothing
 // about whether the token was real.

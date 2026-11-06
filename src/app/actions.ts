@@ -14,6 +14,7 @@ import {
   getAfterLogFacts,
   ownLogDateForUrl,
   reportContent,
+  saveTimeZone,
   setBlocked,
   setPinned,
   setWeeklyEmail,
@@ -27,6 +28,7 @@ import { notify, notifyNewLog } from "@/lib/push";
 import { shareSigValid, shareUrl } from "@/lib/share";
 import { afterLogLine, localMonthStart } from "@/lib/afterlog";
 import { sendWeekly } from "@/lib/weekly";
+import { isTimeZone } from "@/lib/dates";
 
 const SITE_URL = "https://everything-counts.vercel.app";
 const FOUNDER_HANDLE = "hrlevinson";
@@ -691,6 +693,19 @@ export async function toggleWeeklyEmail(formData: FormData): Promise<void> {
   }
   const me = await myHandle();
   if (me) revalidatePath(`/u/${me}`);
+}
+
+// The device's time zone, kept with the person's email settings so the
+// weekly email dates pieces the way the app does for them (TimeZoneSave
+// calls this when the zone it sees differs from the saved one). Says
+// nothing on failure: the next page view tries again.
+export async function rememberTimeZone(timeZone: string): Promise<void> {
+  if (!isTimeZone(timeZone)) return;
+  try {
+    await saveTimeZone(timeZone);
+  } catch {
+    // Nothing to tell the reader.
+  }
 }
 
 // The button on the page an email's "Stop this email" link opens.

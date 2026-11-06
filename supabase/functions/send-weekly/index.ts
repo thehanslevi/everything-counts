@@ -30,7 +30,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type DigestLog, pickPieces, RULES, TEST_RULES } from "./digest.ts";
-import { isLeadImage, renderWeekly } from "./render.ts";
+import { isLeadImage, isTimeZone, renderWeekly } from "./render.ts";
 
 const PUSH_SECRET = Deno.env.get("PUSH_SECRET");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
   let prefsQuery = supabase
     .from("email_prefs")
-    .select("user_id, weekly, token, last_weekly_sent, sent_work_ids");
+    .select("user_id, weekly, token, last_weekly_sent, sent_work_ids, time_zone");
   if (body.onlyUserId) prefsQuery = prefsQuery.eq("user_id", body.onlyUserId);
   if (!force) prefsQuery = prefsQuery.eq("weekly", true);
 
@@ -244,6 +244,7 @@ Deno.serve(async (req) => {
       profileUrl: `${SITE}/u/${handle}`,
       postalAddress: MAIL_ADDRESS,
       now,
+      timeZone: isTimeZone(pref.time_zone) ? pref.time_zone : "UTC",
     });
     const { html, text } = rendered;
     // A test send says so, since it shows whatever the record has rather
