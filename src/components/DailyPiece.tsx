@@ -41,7 +41,7 @@ export function DailyPiece({
             href={log.url}
             className="bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
           >
-            Open the piece ↗
+            Open the piece ↗︎
           </ExternalLink>
           <Link
             href={`/log?url=${encodeURIComponent(log.url)}`}

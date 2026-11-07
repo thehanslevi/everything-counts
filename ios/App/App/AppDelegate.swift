@@ -53,6 +53,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 }
                 if let target = URL(string: "https://everything-counts.vercel.app/log?" + query.joined(separator: "&")),
                    let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
+                    #if DEBUG
+                    NSLog("EC share route: %@", target.absoluteString)
+                    #endif
                     DispatchQueue.main.async {
                         _ = bridgeVC.webView?.load(URLRequest(url: target))
                     }

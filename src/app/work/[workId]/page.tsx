@@ -188,7 +188,7 @@ export default async function WorkPage({
                 href={work.url}
                 className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-accent hover:underline"
               >
-                Open the piece ↗
+                Open the piece ↗︎
               </ExternalLink>
             )}
             <CopyLinkButton />
