@@ -35,21 +35,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Share-sheet hand-off: the share extension opens
-        // everythingcounts://log?url=<shared url>; route it into the webview as
-        // /?logurl=<shared url> so the log form pre-fills and fetches metadata.
+        // everythingcounts://log?url=<shared url>&title=…&author=…&source=…&image=…
+        // (the details are there when the page was shared from Safari). Route
+        // it into the webview as /log?… so the form opens filled in.
         if url.scheme == "everythingcounts" {
-            var shared: String? = nil
-            if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-                shared = components.queryItems?.first(where: { $0.name == "url" })?.value
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let value = { (name: String) -> String? in
+                items.first(where: { $0.name == name })?.value
             }
-            if let shared = shared,
-               let encoded = shared.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
-               let target = URL(string: "https://everything-counts.vercel.app/?logurl=\(encoded)"),
-               let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
-                DispatchQueue.main.async {
-                    _ = bridgeVC.webView?.load(URLRequest(url: target))
+            if let shared = value("url"), !shared.isEmpty {
+                var query: [String] = []
+                for name in ["url", "title", "author", "source", "image"] {
+                    if let v = value(name), !v.isEmpty,
+                       let encoded = v.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+                        query.append("\(name)=\(encoded)")
+                    }
                 }
-                return true
+                if let target = URL(string: "https://everything-counts.vercel.app/log?" + query.joined(separator: "&")),
+                   let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
+                    DispatchQueue.main.async {
+                        _ = bridgeVC.webView?.load(URLRequest(url: target))
+                    }
+                    return true
+                }
             }
         }
         // Keep the Capacitor App API informed for any other URL opens.

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Log } from "@/lib/data/types";
 import { LogCard } from "@/components/LogCard";
 import { Mark } from "@/components/Mark";
+import { savedHaptic } from "@/lib/native";
 
 // What a save turns into: the finished card, the seal pressed onto its
 // corner, one true line about the log, and two ways on. This is the moment
@@ -22,6 +23,11 @@ export function LoggedPanel({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [note, setNote] = useState<string | null>(null);
+
+  // In the iOS app, a tap under the thumb as the card lands.
+  useEffect(() => {
+    void savedHaptic();
+  }, []);
 
   // Save sits at the end of a long form; the card takes its place near the
   // top. If that leaves any of it off screen, bring its top into view

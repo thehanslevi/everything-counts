@@ -13,6 +13,7 @@ import { removeReply } from "@/app/actions";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Stars, formColor } from "@/components/LogCard";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { ExternalLink } from "@/components/ExternalLink";
 import { Avatar } from "@/components/Avatar";
 import { ReplyForm } from "@/components/ReplyForm";
 import { SendPieceForm } from "@/components/SendPieceForm";
@@ -183,14 +184,12 @@ export default async function WorkPage({
 
           <div className="mt-5 flex flex-wrap items-center gap-4">
             {work.url && (
-              <a
+              <ExternalLink
                 href={work.url}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-accent hover:underline"
               >
                 Open the piece ↗
-              </a>
+              </ExternalLink>
             )}
             <CopyLinkButton />
             {viewer && (

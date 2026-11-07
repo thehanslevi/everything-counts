@@ -11,6 +11,7 @@ import {
 } from "@/lib/data/logs";
 import { toggleWeeklyEmail } from "@/app/actions";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
+import { ExternalLink } from "@/components/ExternalLink";
 import { FollowButton } from "@/components/FollowButton";
 import { formColor } from "@/components/LogCard";
 import { RecordList } from "@/components/RecordList";
@@ -91,14 +92,13 @@ export default async function ProfilePage({
               </p>
             )}
             {person.link && (
-              <a
+              <ExternalLink
                 href={person.link}
-                target="_blank"
                 rel="noopener noreferrer nofollow"
                 className="mt-2 inline-block break-all font-structural text-xs font-bold uppercase tracking-[0.1em] text-accent-3 hover:underline"
               >
                 {person.link.replace(/^https?:\/\/(www\.)?/i, "")}
-              </a>
+              </ExternalLink>
             )}
             <div className="mt-3 flex gap-4 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground">
               <Link
