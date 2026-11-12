@@ -15,6 +15,7 @@ struct CountWidget: Widget {
             CountWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Everything Counts")
+        .description("See this month's pieces and the newest from people you follow.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -67,7 +68,7 @@ enum CountLoader {
 
     /// Ask the site for the signed-in reader's numbers. Any failure falls back
     /// to the last good answer for the same handle; with none kept, the
-    /// widget says "Tap to open."
+    /// widget says "Open the app to load this month."
     static func load(completion: @escaping (CountState) -> Void) {
         guard let handle = WidgetAccount.handle else {
             completion(.signedOut)
@@ -106,7 +107,7 @@ enum CountLoader {
     }
 
     /// What can be shown without the network: for snapshots. With nothing
-    /// kept for this reader, "Tap to open." The sample is for the gallery
+    /// kept for this reader, "Open the app to load this month." The sample is for the gallery
     /// and the placeholder only; here it would pass for the reader's count.
     static func storedState() -> CountState {
         guard let handle = WidgetAccount.handle else { return .signedOut }

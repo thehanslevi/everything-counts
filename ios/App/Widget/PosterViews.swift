@@ -37,9 +37,9 @@ struct PosterWidgetView: View {
     var body: some View {
         switch state {
         case .signedOut:
-            NoteFace(line: "Sign in to see your count.", family: family, ink: ink)
+            NoteFace(line: "Open the app to see this month.", family: family, ink: ink)
         case .unavailable:
-            NoteFace(line: "Tap to open.", family: family, ink: ink)
+            NoteFace(line: "Open the app to load this month.", family: family, ink: ink)
         case .count(let payload):
             if family == .medium {
                 MediumCountFace(payload: payload, ink: ink)

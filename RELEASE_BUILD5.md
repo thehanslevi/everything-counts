@@ -27,7 +27,7 @@ with a debug build pointed at a local copy of the site:
   when it comes back (the "foreground" event).
 - The site handed the widget a handle; the widget fetched the live
   `/api/widget` and showed "NOVEMBER · 1 · piece" on the home screen. Signed
-  out, the site clears it and the widget says "Sign in to see your count."
+  out, the site clears it and the widget says "Open the app to see this month."
 
 Native pieces: `ECNativePlugin.swift` (registered in `ViewController`), the
 `Widget` extension target, App Group `group.com.everythingcounts.app` on the

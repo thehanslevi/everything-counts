@@ -2,7 +2,7 @@ import Foundation
 
 // What https://everything-counts.vercel.app/api/widget returns for a reader:
 // this month's count (the month named in the reader's own time zone) and the
-// newest piece in their reading, if there is one.
+// newest shared piece from someone they follow, if there is one.
 struct WidgetPayload: Codable, Equatable {
     struct Piece: Codable, Equatable {
         let title: String
