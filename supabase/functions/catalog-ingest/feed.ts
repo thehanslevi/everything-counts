@@ -774,10 +774,79 @@ export function itemForm(url: string, title: string, labels: string[], image: st
 
 // --- Titles --------------------------------------------------------------------
 
+// An image address's file name, decoded and without its extension:
+// ".../Swallow!%20by%20Shygirl.jpg" is "Swallow! by Shygirl". Decoding can
+// produce control characters ("%00"), so the result is cleaned like any
+// other text the reader keeps.
+function fileName(image: string): string {
+  const file = (image.split(/[?#]/)[0].split("/").pop() ?? "").slice(0, 300).replace(/\.[a-z0-9]{2,5}$/i, "");
+  try {
+    return wellFormed(decodeURIComponent(file));
+  } catch {
+    return wellFormed(file);
+  }
+}
+
+// Short words a name keeps in lowercase after a capital ("Florence + the
+// Machine", "Tyler, the Creator").
+const JOINING = new Set([
+  "a", "an", "and", "at", "by", "da", "de", "del", "der", "des", "di", "du", "for", "from", "in",
+  "la", "le", "les", "n", "n'", "n’", "of", "on", "or", "the", "to", "van", "von", "with", "x", "y",
+]);
+
+// Whether a run of words reads as a name. A run in lowercase is more likely
+// ordinary words ("a low-key album", a slug-style file name) than a name, so
+// it has to open with a capital or a digit; an artist who styles the name in
+// lowercase gets the slug's capitalized words instead. A run that opens with
+// a capital keeps later words in lowercase only when they are joining words,
+// so a sentence's opening ("The national anthem") is no name.
+function nameLike(name: string): boolean {
+  if (/^\p{Ll}/u.test(name)) return false;
+  const words = name.split(/\s+/);
+  if (!/^\p{Lu}/u.test(words[0])) return true;
+  return words.slice(1).every((w) => !/^\p{Ll}/u.test(w) || JOINING.has(w.toLowerCase()));
+}
+
+// A run of whole words in one of `texts` that a link's slug would spell as
+// `want`, as that text spells it: "the-cats-miaow" is "The Cat's Miaow" in
+// the file name "The Cat's Miaow When You Smiled and Turned Away". A text in
+// one case only ("sufjan-worst-christmas-ever-art") tells nothing about
+// capitals and is passed over.
+function spelledAs(want: string, texts: string[]): string {
+  const most = want.split("-").length + 3;
+  for (const text of texts) {
+    if (!/\p{Lu}/u.test(text) || !/\p{Ll}/u.test(text)) continue;
+    // A file name with no spaces puts hyphens or underscores between words.
+    const spaced = /\s/.test(text);
+    const words = [...text.matchAll(/[^\s_\-–—]+/g)];
+    for (let i = 0; i < words.length; i++) {
+      for (let j = i; j < words.length && j < i + most; j++) {
+        const run = text.slice(words[i].index ?? 0, (words[j].index ?? 0) + words[j][0].length);
+        if (slug(run).length > want.length + 2) break;
+        let name = run.replace(/^[“"‘'(\[]+|[,.;:”"’')\]]+$/g, "");
+        if (slug(name) !== want) name = name.replace(/['’]s$/, "");
+        name = spaced ? name.replace(/_+/g, " ") : name.replace(/[-_]+/g, " ");
+        if (slug(name) === want && nameLike(name)) return name;
+      }
+    }
+  }
+  return "";
+}
+
 // What some feeds wrap around a headline or put in place of a byline, taken
 // off so a suggestion reads as the piece's own title over its own writer.
 // `byline` is the feed's author text as given, empty when it names no one.
-function tidy(title: string, author: string, byline: string, url: string, form: string): { title: string; author: string } {
+// `image` and `summary` are the item's lead image address and the opening of
+// its description, where a name can be spelled out.
+function tidy(
+  title: string,
+  author: string,
+  byline: string,
+  url: string,
+  form: string,
+  image = "",
+  summary = "",
+): { title: string; author: string } {
   const u = new URL(url);
   let t = title;
   let a = author;
@@ -813,6 +882,9 @@ function tidy(title: string, author: string, byline: string, url: string, form: 
   t = t.replace(/\s+[-–—]\s*Clone$/i, "");
   // Pitchfork's reviews title only the album; its pages say "Artist: Album" and the slug holds the artist.
   // (/reviews/albums/shygirl-swallow/, /reviews/albums/daine/in-endless-awe-and-agony/)
+  // A slug has no capitals or apostrophes, so the name is taken as the item spells it where it can be:
+  // the album's own title when the album is self-titled and not set in capitals, then the lead image's file name, the title's
+  // words and the description. With none of them, the slug's words are capitalized ("Sufjan Stevens").
   const parts = u.pathname.split("/").filter(Boolean);
   if (u.hostname === "pitchfork.com" && parts[0] === "reviews" && parts.length >= 3) {
     const rest = parts.slice(2);
@@ -823,7 +895,9 @@ function tidy(title: string, author: string, byline: string, url: string, form: 
       ? rest[0].slice(0, -own.length - 1)
       : "";
     if (artist) {
-      t = `${artist.split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}: ${t}`;
+      const name = (own === artist && /\p{Ll}/u.test(t) ? t.trim() : "") || spelledAs(artist, [fileName(image), t, summary]) ||
+        artist.split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      t = `${name}: ${t}`;
     }
   }
   return { title: VISIBLE.test(t) ? t : title, author: a };
@@ -900,7 +974,7 @@ export function catalogRows(xml: string, feed: FeedSource, oldest: Date): Catalo
     const id = workIdFor(url);
     if (rows.has(id)) continue;
     const form = itemForm(url, title, item.labels, item.image, feed.form);
-    const named = tidy(title, posterBylines ? "" : item.author, item.byline, url, form);
+    const named = tidy(title, posterBylines ? "" : item.author, item.byline, url, form, item.image, item.summary);
     const resolved = absolute(item.image, feed.url);
     const image = resolved && sized(resolved);
     rows.set(id, {

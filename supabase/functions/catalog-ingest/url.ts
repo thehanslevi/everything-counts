@@ -2,6 +2,8 @@
 // src/lib/data/url.ts (normalizeUrl + FNV-1a), so a catalog row and a log
 // of the same piece share an id. Kept as a copy because edge functions are
 // bundled on their own; a test compares the two on a set of addresses.
+// Both copies name English ("en") for the query-key sort, so Deno here and
+// Node on Vercel give the same id whatever locale either one runs in.
 
 const TRACKING_PARAMS = new Set([
   "fbclid",
@@ -32,9 +34,14 @@ export function normalizeUrl(raw: string): string {
     const u = new URL(raw.trim());
     const host = u.hostname.toLowerCase().replace(/^www\./, "");
     const path = u.pathname.replace(/\/+$/, "");
+    // Keys sort in English collation, named outright. Left to the runtime's
+    // default locale, a server set to Turkish or Swedish would order some
+    // keys differently and give the same link a second work id. Naming "en"
+    // gives the order an English default always gave, so every stored id
+    // stays as it was.
     const params = [...u.searchParams.entries()]
       .filter(([key]) => !isTrackingParam(key))
-      .sort(([a], [b]) => a.localeCompare(b));
+      .sort(([a], [b]) => a.localeCompare(b, "en"));
     const qs = new URLSearchParams(params).toString();
     const base = `${host}${path}`;
     return qs ? `${base}?${qs}` : base;
