@@ -38,18 +38,6 @@ export function cleanQuery(raw: string | null | undefined): string | null {
   return fold(q).replace(/ /g, "").length >= MIN_QUERY ? q : null;
 }
 
-// The fragment to hand the database's substring search: the longest run of
-// letters and digits, since it narrows most. Split at apostrophes and
-// hyphens too, so the database is never stricter than the folded ranking
-// ("writer’s" typed on a phone still finds "Writer's"), and nothing that
-// could upset the query syntax gets through. Ranking in code does the rest.
-// Empty when nothing usable is left.
-export function anchorWord(q: string): string {
-  return q
-    .split(/[^\p{L}\p{N}]+/u)
-    .reduce((best, w) => (w.length > best.length ? w : best), "");
-}
-
 // How well a piece answers what was typed. 0 means it doesn't.
 //   100  the title, exactly
 //    80  the title starts with it

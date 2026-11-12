@@ -4,7 +4,7 @@ import { slugify } from "@/lib/slug";
 import type { AfterLogFacts } from "@/lib/afterlog";
 import { pickDaily } from "@/lib/daily";
 import { monthKeyIn } from "@/lib/dates";
-import { anchorWord, titleScore, type Suggestion } from "@/lib/suggest-core";
+import { titleScore, type Suggestion } from "@/lib/suggest-core";
 import { fold } from "@/lib/fold";
 import {
   logFromRow,
@@ -108,19 +108,35 @@ function likePattern(q: string): string {
   return `%${q.replace(/[%_\\]/g, "\\$&")}%`;
 }
 
+// The words a search filters on, folded the way the `search` columns of logs
+// and catalog are (fold() here, public.search_fold() in the database), so
+// "havent" finds "Haven’t" and "cafe" finds "Café". Every word must appear
+// somewhere in the column, in any order. Up to four, longest first; words
+// shorter than `minLength` are left to the ranking. Empty means there is
+// nothing to filter on.
+function searchWords(query: string, minLength = 2): string[] {
+  return [...new Set(fold(query).split(" "))]
+    .filter((w) => w.length >= minLength)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 4);
+}
+
 // Search shared logs by title, author, or source, grouped into works (one
 // entry per work, newest log wins, with the number of distinct loggers).
+// The words are matched folded against the logs' `search` column (title,
+// author and source), so they can come from different fields: "orwell
+// politics" finds Orwell's "Politics and the English Language". A
+// one-letter search still searches.
 export async function searchWorks(
   q: string,
 ): Promise<{ log: Log; loggerCount: number }[]> {
+  const words = searchWords(q, 1);
+  if (words.length === 0) return [];
   const supabase = await createClient();
   const blocked = await viewerBlockedIds();
-  const pattern = likePattern(q);
-  const { data } = await supabase
-    .from("logs")
-    .select("*")
-    .eq("shared", true)
-    .or(`title.ilike.${pattern},author.ilike.${pattern},source.ilike.${pattern}`)
+  let request = supabase.from("logs").select("*").eq("shared", true);
+  for (const word of words) request = request.ilike("search", likePattern(word));
+  const { data } = await request
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -149,19 +165,23 @@ export async function suggestFromRecord(
   query: string,
   limit = 6,
 ): Promise<Suggestion[]> {
-  const anchor = anchorWord(query);
-  if (anchor.length < 2) return [];
+  // Up to four typed words (two letters or more, longest first), folded,
+  // must appear in the logs' `search` column. That is never stricter than the ranking below:
+  // every piece it keeps has each typed word in its title or author. The
+  // column holds the source too, which the ranking ignores.
+  const words = searchWords(query);
+  if (words.length === 0) return [];
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const blocked = user ? await getBlockedIds(user.id) : new Set<string>();
-  const pattern = likePattern(anchor);
-  const { data } = await supabase
+  let request = supabase
     .from("logs")
     .select("work_id, user_id, url, title, author, source, form, image, created_at")
-    .eq("shared", true)
-    .or(`title.ilike.${pattern},author.ilike.${pattern}`)
+    .eq("shared", true);
+  for (const word of words) request = request.ilike("search", likePattern(word));
+  const { data } = await request
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -220,14 +240,8 @@ export async function suggestFromCatalog(
   // The catalog is large, so every typed word must appear in the title or
   // the author (the ranking below asks the same), not only the longest: a
   // common word alone could fill the first 200 rows with other pieces. The
-  // words are matched folded, against the catalog's folded `search` column
-  // (title and author run through the same rule in the database), so
-  // "havent" finds "Haven’t" and "cafe" finds "Café". Up to four words,
-  // longest first; one-letter words are left to the ranking.
-  const words = [...new Set(fold(query).split(" "))]
-    .filter((w) => w.length >= 2)
-    .sort((a, b) => b.length - a.length)
-    .slice(0, 4);
+  // catalog's `search` column holds its title and author folded.
+  const words = searchWords(query);
   if (words.length === 0) return [];
   const supabase = await createClient();
   let request = supabase

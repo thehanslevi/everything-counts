@@ -68,31 +68,32 @@ function metaContent(html: string, keys: string[]): string | null {
 }
 
 // HTML entity decoding for meta tag values: numeric references, and the named
-// ones publishers actually put in titles (dashes, curly quotes, ellipses).
-// Left undecoded they end up stored, and shown, as literal "&mdash;".
+// ones publishers actually put in titles and bylines (dashes, curly quotes,
+// guillemets, accented letters). Left undecoded they end up stored, and shown,
+// as literal "&mdash;". The table is the one the catalog's feed reader uses.
 const NAMED_ENTITIES: Record<string, string> = {
-  amp: "&",
-  quot: '"',
-  apos: "'",
-  lt: "<",
-  gt: ">",
-  nbsp: " ",
-  mdash: "—",
-  ndash: "–",
-  hellip: "…",
-  lsquo: "‘",
-  rsquo: "’",
-  ldquo: "“",
-  rdquo: "”",
-  middot: "·",
-  bull: "•",
-  copy: "©",
-  reg: "®",
-  trade: "™",
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”",
+  ldquo: "“", sbquo: "‚", bdquo: "„", laquo: "«", raquo: "»", middot: "·",
+  bull: "•", copy: "©", reg: "®", trade: "™", deg: "°", eacute: "é",
+  egrave: "è", ecirc: "ê", euml: "ë", aacute: "á", agrave: "à", acirc: "â",
+  auml: "ä", aring: "å", atilde: "ã", iacute: "í", igrave: "ì", icirc: "î",
+  iuml: "ï", oacute: "ó", ograve: "ò", ocirc: "ô", ouml: "ö", otilde: "õ",
+  oslash: "ø", uacute: "ú", ugrave: "ù", ucirc: "û", uuml: "ü", ntilde: "ñ",
+  ccedil: "ç", szlig: "ß", Eacute: "É", Aacute: "Á", Oacute: "Ó", Uacute: "Ú",
+  Ntilde: "Ñ", Ccedil: "Ç", Ouml: "Ö", Uuml: "Ü", Auml: "Ä", aelig: "æ",
+  oelig: "œ", thinsp: " ", ensp: " ", emsp: " ", zwj: "", zwnj: "",
 };
 
-function decodeEntities(value: string): string {
-  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body: string) => {
+// Exact case first, so "&Eacute;" stays a capital; then any case.
+function namedEntity(name: string): string | undefined {
+  if (Object.hasOwn(NAMED_ENTITIES, name)) return NAMED_ENTITIES[name];
+  const lower = name.toLowerCase();
+  return Object.hasOwn(NAMED_ENTITIES, lower) ? NAMED_ENTITIES[lower] : undefined;
+}
+
+function decodeOnce(value: string): string {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (match, body: string) => {
     if (body[0] === "#") {
       const code =
         body[1] === "x" || body[1] === "X"
@@ -102,8 +103,21 @@ function decodeEntities(value: string): string {
         ? String.fromCodePoint(code)
         : match;
     }
-    return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+    return namedEntity(body) ?? match;
   });
+}
+
+// Some pages escape twice ("&amp;mdash;"), so decoding runs until nothing
+// changes, at most three passes.
+function decodeEntities(value: string): string {
+  if (!value.includes("&")) return value;
+  let out = value;
+  for (let i = 0; i < 3; i++) {
+    const next = decodeOnce(out);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
 }
 
 function hostname(url: string): string | null {

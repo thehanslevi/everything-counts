@@ -107,9 +107,15 @@ export function normalizeUrl(raw: string): string {
     const host = u.hostname.toLowerCase().replace(/^www\./, "");
     const path = u.pathname.replace(/\/+$/, ""); // drop trailing slash(es)
 
+    // Keys sort in English collation, named outright. Left to the runtime's
+    // default locale, a server set to Turkish or Swedish would order some
+    // keys differently and give the same link a second work id. Naming "en"
+    // gives the order an English default always gave, so every stored id
+    // stays as it was.
+    // supabase/functions/catalog-ingest/url.ts sorts the same way.
     const params = [...u.searchParams.entries()]
       .filter(([key]) => !isTrackingParam(key))
-      .sort(([a], [b]) => a.localeCompare(b));
+      .sort(([a], [b]) => a.localeCompare(b, "en"));
     const qs = new URLSearchParams(params).toString();
 
     const base = `${host}${path}`;
