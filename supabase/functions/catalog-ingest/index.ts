@@ -187,7 +187,8 @@ Deno.serve(async (req) => {
       .from("catalog_feeds")
       .update({
         last_status: status,
-        last_count: got.rows.length,
+        // An unchanged feed keeps the count from its last full read.
+        ...(got.status === "unchanged" ? {} : { last_count: got.rows.length }),
         ...(fresh
           ? { etag: stored ? got.etag : null, last_modified: stored ? got.lastModified : null }
           : {}),
