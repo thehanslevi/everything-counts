@@ -45,12 +45,9 @@ export function cleanQuery(raw: string | null | undefined): string | null {
 // could upset the query syntax gets through. Ranking in code does the rest.
 // Empty when nothing usable is left.
 export function anchorWord(q: string): string {
-  return cleanWords(q).reduce((best, w) => (w.length > best.length ? w : best), "");
-}
-
-// The typed words, split the same way: runs of letters and digits only.
-export function cleanWords(q: string): string[] {
-  return q.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return q
+    .split(/[^\p{L}\p{N}]+/u)
+    .reduce((best, w) => (w.length > best.length ? w : best), "");
 }
 
 // How well a piece answers what was typed. 0 means it doesn't.

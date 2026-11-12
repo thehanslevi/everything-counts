@@ -4,7 +4,8 @@ import { slugify } from "@/lib/slug";
 import type { AfterLogFacts } from "@/lib/afterlog";
 import { pickDaily } from "@/lib/daily";
 import { monthKeyIn } from "@/lib/dates";
-import { anchorWord, cleanWords, titleScore, type Suggestion } from "@/lib/suggest-core";
+import { anchorWord, titleScore, type Suggestion } from "@/lib/suggest-core";
+import { fold } from "@/lib/fold";
 import {
   logFromRow,
   profileFromRow,
@@ -216,25 +217,23 @@ export async function suggestFromCatalog(
   query: string,
   limit = 6,
 ): Promise<Suggestion[]> {
-  const anchor = anchorWord(query);
-  if (anchor.length < 2) return [];
-  const supabase = await createClient();
   // The catalog is large, so every typed word must appear in the title or
-  // the author (the ranking below asks the same), not only the longest:
-  // a common word alone could fill the first 200 rows with other pieces.
-  // Up to four words, longest first; one-letter words are left to the
-  // ranking.
-  const words = [...new Set(cleanWords(query))]
+  // the author (the ranking below asks the same), not only the longest: a
+  // common word alone could fill the first 200 rows with other pieces. The
+  // words are matched folded, against the catalog's folded `search` column
+  // (title and author run through the same rule in the database), so
+  // "havent" finds "Haven’t" and "cafe" finds "Café". Up to four words,
+  // longest first; one-letter words are left to the ranking.
+  const words = [...new Set(fold(query).split(" "))]
     .filter((w) => w.length >= 2)
     .sort((a, b) => b.length - a.length)
     .slice(0, 4);
+  if (words.length === 0) return [];
+  const supabase = await createClient();
   let request = supabase
     .from("catalog")
     .select("id, url, title, author, source, image, form, published_at");
-  for (const word of words) {
-    const pattern = likePattern(word);
-    request = request.or(`title.ilike.${pattern},author.ilike.${pattern}`);
-  }
+  for (const word of words) request = request.ilike("search", likePattern(word));
   const { data, error } = await request
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(200);
