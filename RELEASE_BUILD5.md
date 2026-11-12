@@ -56,14 +56,16 @@ doesn't include the App Groups capability".
 
 ### What's New (drafts, mine, pick or rewrite)
 
-- A: Type a title to log a piece without a link. Add the widget to see your count for the month.
+- A: Type a title to log a piece without a link. Add the widget to see this month's pieces.
 - B: Log by title, with or without a link. The app now offers to log a link you've copied.
-- C: Search titles as you log. A home screen widget shows your count for the month.
+- C: Search titles as you log. A home screen widget shows this month's pieces.
 
 ### Review notes (draft, mine)
 
 > New in 1.3: a home screen widget (small and medium) showing the signed-in
 > reader's count for the month and the newest piece from someone they follow.
+> Before the app has told it who is signed in, it says "Open the app to see
+> this month."
 > Add it from the home screen's widget gallery after signing in.
 >
 > When the app opens with a link on the clipboard, it shows a "Log it" bar. It
