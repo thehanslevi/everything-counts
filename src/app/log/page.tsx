@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/lib/data/logs";
-import { coerceUrl } from "@/lib/data/url";
+import { coerceUrl, isHandWorkId } from "@/lib/data/url";
+import { FORMS, type Form } from "@/lib/data/types";
 import { pageDetails } from "@/lib/links";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LogForm } from "@/components/LogForm";
-import { Bookmarklet } from "@/components/Bookmarklet";
+import { LogElsewhere } from "@/components/LogElsewhere";
 import { FollowPeopleStep } from "@/components/FollowPeopleStep";
 
 export const metadata = { title: "Log a piece — Everything Counts" };
@@ -39,6 +40,8 @@ export default async function LogPage({
     author?: string;
     source?: string;
     image?: string;
+    form?: string;
+    work?: string;
   }>;
 }) {
   const [{ profile, hasSession }, params] = await Promise.all([
@@ -48,12 +51,17 @@ export default async function LogPage({
   const shared = sharedUrl(params);
   const isNew = params.new === "1";
   const details = shared ? pageDetails(params, shared) : {};
+  // No link: a piece from the record logged again ("Log it" on a work page
+  // or the day's piece), carried as its details and the work it pools into.
+  const piece = shared ? undefined : handPiece(params);
 
   // Signed out: through sign-in and straight back here, with the link and
   // whatever came with it intact.
   if (!profile) {
     if (hasSession) redirect("/welcome");
-    const back = new URLSearchParams(shared ? { url: shared, ...details } : {});
+    const back = new URLSearchParams(
+      shared ? { url: shared, ...details } : piece ? pieceParams(piece) : {},
+    );
     const dest = back.size > 0 ? `/log?${back}` : "/log";
     redirect(`/signin?next=${encodeURIComponent(dest)}`);
   }
@@ -73,12 +81,57 @@ export default async function LogPage({
               recently. Paste the link.
             </p>
           )}
-          <LogForm initialUrl={shared} prefill={details} autoFocus={!shared} />
+          <LogForm
+            initialUrl={shared}
+            prefill={piece ?? details}
+            autoFocus={!shared && !piece}
+          />
         </div>
       </section>
 
       {isNew && <FollowPeopleStep />}
-      {!shared && <Bookmarklet />}
+      {!shared && !piece && <LogElsewhere />}
     </main>
+  );
+}
+
+type HandPiece = {
+  title: string;
+  author?: string;
+  source?: string;
+  form?: Form;
+  work?: string;
+};
+
+// The details of a no-link piece from the address, trimmed and capped the
+// way the form would; nothing without a title.
+function handPiece(params: {
+  title?: string;
+  author?: string;
+  source?: string;
+  form?: string;
+  work?: string;
+}): HandPiece | undefined {
+  const clip = (value: string | undefined, max: number) =>
+    (value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  const title = clip(params.title, 300);
+  if (!title) return undefined;
+  const piece: HandPiece = { title };
+  const author = clip(params.author, 200);
+  const source = clip(params.source, 120);
+  if (author) piece.author = author;
+  if (source) piece.source = source;
+  if (params.form && (FORMS as readonly string[]).includes(params.form)) {
+    piece.form = params.form as Form;
+  }
+  if (params.work && isHandWorkId(params.work)) piece.work = params.work;
+  return piece;
+}
+
+function pieceParams(piece: HandPiece): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(piece).filter((entry): entry is [string, string] =>
+      Boolean(entry[1]),
+    ),
   );
 }

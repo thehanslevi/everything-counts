@@ -3,11 +3,14 @@ import { workIdFor } from "./url";
 import { slugify } from "@/lib/slug";
 import type { AfterLogFacts } from "@/lib/afterlog";
 import { pickDaily } from "@/lib/daily";
+import { monthKeyIn } from "@/lib/dates";
+import { anchorWord, titleScore, type Suggestion } from "@/lib/suggest-core";
 import {
   logFromRow,
   profileFromRow,
   type AppNotification,
   type FeedItem,
+  type Form,
   type Log,
   type LogRow,
   type NewLog,
@@ -135,6 +138,86 @@ export async function searchWorks(
     log,
     loggerCount: loggers.size,
   }));
+}
+
+// Title suggestions from the record: pieces people here have logged that
+// answer what's being typed, one entry per work, best match first. Blocked
+// people are left out, as everywhere; the viewer's own logs carry the date
+// they last logged it, so the form can say so before a second save.
+export async function suggestFromRecord(
+  query: string,
+  limit = 6,
+): Promise<Suggestion[]> {
+  const anchor = anchorWord(query);
+  if (anchor.length < 2) return [];
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const blocked = user ? await getBlockedIds(user.id) : new Set<string>();
+  const pattern = likePattern(anchor);
+  const { data } = await supabase
+    .from("logs")
+    .select("work_id, user_id, url, title, author, source, form, image, created_at")
+    .eq("shared", true)
+    .or(`title.ilike.${pattern},author.ilike.${pattern}`)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  type Row = Pick<
+    LogRow,
+    "work_id" | "user_id" | "url" | "title" | "author" | "source" | "form" | "image" | "created_at"
+  >;
+  const byWork = new Map<
+    string,
+    { row: Row; url: string | null; image: string | null; readers: Set<string>; mineAt: string | null; score: number }
+  >();
+  for (const row of (data ?? []) as Row[]) {
+    if (blocked.has(row.user_id)) continue;
+    const score = titleScore(query, row.title, row.author);
+    if (score === 0) continue;
+    // Rows arrive newest first: the newest names the work, and any row
+    // can supply the link or picture the newest lacks.
+    let entry = byWork.get(row.work_id);
+    if (!entry) {
+      entry = { row, url: null, image: null, readers: new Set(), mineAt: null, score };
+      byWork.set(row.work_id, entry);
+    }
+    entry.readers.add(row.user_id);
+    entry.url ??= row.url;
+    entry.image ??= row.image;
+    if (user && row.user_id === user.id) entry.mineAt ??= row.created_at;
+  }
+
+  return [...byWork.values()]
+    .sort((a, b) => b.score - a.score || b.readers.size - a.readers.size)
+    .slice(0, limit)
+    .map(({ row, url, image, readers, mineAt }) => ({
+      key: `record:${row.work_id}`,
+      origin: "record" as const,
+      title: row.title,
+      author: row.author,
+      source: row.source,
+      form: row.form as Form,
+      url,
+      image,
+      workId: row.work_id,
+      readers: readers.size,
+      mineAt,
+      weight: 0,
+    }));
+}
+
+// Is there a shared log of this work? Guards the work id a form sends along
+// when a no-link piece was picked from the suggestions.
+export async function workExists(workId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("logs")
+    .select("id", { count: "exact", head: true })
+    .eq("work_id", workId)
+    .eq("shared", true);
+  return (count ?? 0) > 0;
 }
 
 // Search people by handle, name, or role.
@@ -853,7 +936,9 @@ export async function addLog(input: NewLog): Promise<Log> {
     .insert({
       user_id: user.id,
       shared: true,
-      work_id: workIdFor(url, input.title),
+      work_id:
+        input.workId ??
+        workIdFor(url, input.title, input.author, input.source),
       url,
       title: input.title.trim(),
       author: input.author?.trim() || null,
@@ -1149,4 +1234,113 @@ export async function unsubscribeByToken(token: string): Promise<void> {
   }
   const supabase = await createClient();
   await supabase.rpc("unsubscribe_weekly", { p_token: token });
+}
+
+// --- The iPhone home screen widget ------------------------------------------
+
+export interface WidgetData {
+  handle: string;
+  month: string; // the reader's current month, e.g. "November"
+  count: number; // pieces they logged in it
+  latest: {
+    title: string;
+    author: string | null;
+    source: string | null;
+    form: string;
+    by: string; // the handle of whoever logged it
+    workId: string;
+  } | null;
+}
+
+// What the widget shows for a reader: how many pieces they've logged this
+// month, in their own time zone, and the newest piece from someone they
+// follow. Nothing private: the same logs and follows their profile shows.
+// Null when there's no such handle.
+export async function getWidgetData(
+  handle: string,
+  timeZone: string,
+  now = new Date(),
+): Promise<WidgetData | null> {
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, handle")
+    .eq("handle", handle)
+    .maybeSingle();
+  if (!profile) return null;
+
+  // A month is never more than 31 days; a day either side covers any zone.
+  const since = new Date(now.getTime() - 33 * 24 * 60 * 60 * 1000);
+  const [mine, follows] = await Promise.all([
+    supabase
+      .from("logs")
+      .select("created_at")
+      .eq("user_id", profile.id)
+      .gte("created_at", since.toISOString()),
+    supabase.from("follows").select("followee_id").eq("follower_id", profile.id),
+  ]);
+  const thisMonth = monthKeyIn(now, timeZone);
+  const count = ((mine.data ?? []) as { created_at: string }[]).filter(
+    (row) => monthKeyIn(row.created_at, timeZone) === thisMonth,
+  ).length;
+
+  const followed = ((follows.data ?? []) as { followee_id: string }[])
+    .map((row) => row.followee_id)
+    .filter((id) => id !== profile.id);
+  let latest: WidgetData["latest"] = null;
+  if (followed.length > 0) {
+    const { data } = await supabase
+      .from("logs")
+      .select("title, author, source, form, work_id, profiles(handle)")
+      .in("user_id", followed)
+      .eq("shared", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const row = (data ?? [])[0] as unknown as
+      | (Pick<LogRow, "title" | "author" | "source" | "form" | "work_id"> & {
+          profiles: { handle: string } | null;
+        })
+      | undefined;
+    if (row?.profiles) {
+      latest = {
+        title: row.title,
+        author: row.author,
+        source: row.source,
+        form: row.form,
+        by: row.profiles.handle,
+        workId: row.work_id,
+      };
+    }
+  }
+
+  return {
+    handle: profile.handle as string,
+    month: new Intl.DateTimeFormat("en-US", { month: "long", timeZone }).format(now),
+    count,
+    latest,
+  };
+}
+
+// Everyone who signed up and hasn't logged a piece yet (founder tool: the
+// one-off note on the notifications page). Profiles and logs are both
+// public, so this needs no special access. One query that asks for profiles
+// with no log rows at all, read a page at a time so no row cap can hide a
+// log. Null when the read fails: that must never pass for "nobody has
+// logged".
+export async function getNewcomerIds(): Promise<string[] | null> {
+  const supabase = await createClient();
+  const PAGE = 1000;
+  const ids: string[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, logs(user_id)")
+      .is("logs", null)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) return null;
+    const rows = (data ?? []) as { id: string }[];
+    ids.push(...rows.map((row) => row.id));
+    if (rows.length < PAGE) return ids;
+  }
 }

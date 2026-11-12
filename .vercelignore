@@ -1,0 +1,4 @@
+# The CLI uploads everything not listed here (it doesn't read .gitignore).
+# The iPhone project and local tooling folders aren't part of the web build.
+.claude
+ios

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Log } from "@/lib/data/types";
 import { LogCard } from "@/components/LogCard";
 import { Mark } from "@/components/Mark";
-import { savedHaptic } from "@/lib/native";
+import { reloadWidgets, retireClipboardLink, savedHaptic } from "@/lib/native";
 
 // What a save turns into: the finished card, the seal pressed onto its
 // corner, one true line about the log, and two ways on. This is the moment
@@ -24,9 +24,11 @@ export function LoggedPanel({
   const ref = useRef<HTMLDivElement>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  // In the iOS app, a tap under the thumb as the card lands.
+  // In the iOS app, a tap under the thumb as the card lands, and the home
+  // screen widget counts the new piece.
   useEffect(() => {
     void savedHaptic();
+    void reloadWidgets();
   }, []);
 
   // Save sits at the end of a long form; the card takes its place near the
@@ -57,6 +59,8 @@ export function LoggedPanel({
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
+      // The app put this link there: the copy-to-log bar shouldn't offer it.
+      void retireClipboardLink();
       setNote("Link copied");
     } catch {
       setNote("Couldn't copy the link");

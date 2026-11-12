@@ -11,6 +11,7 @@ import { RecordList } from "@/components/RecordList";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { BulkImport } from "@/components/BulkImport";
+import { LogElsewhere } from "@/components/LogElsewhere";
 import { getTimeZone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
@@ -43,25 +44,27 @@ export default async function Home({
       <main className="mx-auto w-full max-w-2xl px-5 py-12 sm:px-6 sm:py-16">
         <SiteHeader />
 
-        <section className="mt-14 border-[3px] border-foreground bg-paper p-6 sm:p-8">
-          <h2 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground sm:text-4xl">
+        <section className="mt-10 border-[3px] border-foreground bg-paper p-5 sm:mt-14 sm:p-8">
+          <h2 className="text-balance font-structural text-3xl font-black uppercase leading-none tracking-[-0.01em] text-foreground sm:text-4xl">
             Books aren&apos;t the half of it.
           </h2>
-          <p className="mt-4 font-serif text-[15px] leading-[1.6] text-foreground/75">
+          <p className="mt-3 font-serif text-[15px] leading-[1.55] text-foreground/75">
             Keep a record of what you read, and see what others are reading.
           </p>
           <Link
             href={hasSession ? "/welcome" : "/signin"}
-            className="mt-6 inline-block bg-accent px-6 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
+            className="mt-5 inline-block bg-accent px-6 py-2.5 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
           >
             {hasSession ? "Finish setup" : "Start logging"}
           </Link>
         </section>
 
         {recent.length > 0 && (
-          <section className="mt-16">
-            <div className="flex items-end justify-between border-b-[3px] border-foreground pb-3">
-              <h2 className="font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
+          <section className="mt-12 sm:mt-16">
+            {/* On a phone the label drops under the heading instead of
+                squeezing both onto two lines each. */}
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b-[3px] border-foreground pb-3">
+              <h2 className="whitespace-nowrap font-structural text-3xl font-black uppercase tracking-[-0.01em] text-foreground">
                 Recently logged
               </h2>
               <span className="bg-accent-3 px-2 py-1 font-structural text-xs font-bold uppercase tracking-[0.18em] text-white">
@@ -125,9 +128,12 @@ export default async function Home({
         </div>
 
         {logs.length === 0 ? (
-          <EmptyState title="Nothing logged yet">
-            Paste a link above to log your first piece.
-          </EmptyState>
+          <>
+            <EmptyState title="Nothing logged yet">
+              Paste a link or type a title above to log your first piece.
+            </EmptyState>
+            <LogElsewhere />
+          </>
         ) : (
           <RecordList logs={logs} own timeZone={timeZone} />
         )}

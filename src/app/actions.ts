@@ -21,9 +21,12 @@ import {
   unsubscribeByToken,
   updateLog,
   updateProfile as saveProfile,
+  workExists,
+  getNewcomerIds,
+  getSessionProfile,
 } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
-import { coerceUrl, workIdFor } from "@/lib/data/url";
+import { coerceUrl, isHandWorkId, workIdFor } from "@/lib/data/url";
 import { notify, notifyNewLog } from "@/lib/push";
 import { shareSigValid, shareUrl } from "@/lib/share";
 import { afterLogLine, localMonthStart } from "@/lib/afterlog";
@@ -90,24 +93,42 @@ export async function createLog(formData: FormData): Promise<ActionResult> {
   }
 
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to log a piece." };
+
     // Who, if anyone, handed them this piece: the share link they arrived
     // by, or a member's Share. Recorded on the log; the sender hears back.
-    const rawUrl = ((formData.get("url") as string | null) ?? "").trim() || null;
+    // No link is fine: a printed piece, a PDF, a chapter. Anything sent as
+    // a link that isn't one is treated as no link rather than saved as text.
+    const rawUrl = coerceUrl((formData.get("url") as string | null) ?? "");
+    const author = (formData.get("author") as string | null)?.trim() || null;
+    const source = (formData.get("source") as string | null)?.trim() || null;
+    // A no-link piece picked from the suggestions arrives with the work it
+    // belongs to, so it pools there even if the first reader typed the
+    // details differently. Only a real, existing no-link work is accepted.
+    const hint = ((formData.get("work") as string | null) ?? "").trim();
+    const workId =
+      !rawUrl && isHandWorkId(hint) && (await workExists(hint))
+        ? hint
+        : workIdFor(rawUrl, title, author, source, user.id);
     const cookieStore = await cookies();
-    const workId = workIdFor(rawUrl, title);
     const viaHint = viaHandleFor(cookieStore.get(VIA_COOKIE)?.value, workId);
     const viaUserId = await findSenderFor(workId, viaHint);
 
     const log = await addLog({
       url: rawUrl,
       title,
-      author: (formData.get("author") as string | null) ?? null,
-      source: (formData.get("source") as string | null) ?? null,
+      author,
+      source,
       image: (formData.get("image") as string | null) ?? null,
       form: formValue as Form,
       take: (formData.get("take") as string | null) ?? null,
       rating,
       viaUserId,
+      workId,
     });
     if (viaHint) cookieStore.delete(VIA_COOKIE);
     revalidatePath("/");
@@ -755,6 +776,43 @@ export async function sendTestWeekly(): Promise<ActionResult> {
     error: reasons === "nothing-to-send"
       ? "Nothing to send: there isn't reading from two different people to show."
       : `Nothing sent${reasons ? ` (${reasons})` : ""}.`,
+  };
+}
+
+// Founder-only: one note, pushed to the phones of everyone who signed up and
+// hasn't logged a piece yet. Tapping it opens the first-log page. Their
+// phones only: nobody without notifications on hears anything.
+export async function sendNoteToNewcomers(message: string): Promise<ActionResult> {
+  const { profile } = await getSessionProfile();
+  if (!profile) return { ok: false, error: "Sign in first." };
+  if (profile.handle !== FOUNDER_HANDLE) return { ok: false, error: "Not available." };
+  const body = message.replace(/\s+/g, " ").trim();
+  if (!body) return { ok: false, error: "Write the note first." };
+  if (body.length > 240) return { ok: false, error: "Keep it under 240 characters." };
+  if (!process.env.PUSH_SECRET) {
+    return { ok: false, error: "PUSH_SECRET is not set on this deployment." };
+  }
+
+  const newcomers = await getNewcomerIds();
+  if (!newcomers) {
+    return { ok: false, error: "Couldn't check who has logged. Nothing was sent." };
+  }
+  const ids = newcomers.filter((id) => id !== profile.id);
+  let phones = 0;
+  for (const id of ids) {
+    const result = await notify({
+      recipientUserId: id,
+      title: profile.name || `@${profile.handle}`,
+      body,
+      url: "/log?new=1",
+    });
+    phones += result?.sent ?? 0;
+  }
+  return {
+    ok: true,
+    message: `Sent to ${phones} phone${phones === 1 ? "" : "s"} (${ids.length} ${
+      ids.length === 1 ? "person" : "people"
+    } without a log).`,
   };
 }
 

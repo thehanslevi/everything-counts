@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { FeedItem } from "@/lib/data/types";
 import { LogCard } from "@/components/LogCard";
 import { ExternalLink } from "@/components/ExternalLink";
+import { logItHref } from "@/lib/loghref";
 
 // The day's piece at the top of the feed, set apart on ink so it doesn't
 // read as the newest log. The card says whose record it came from; under it,
@@ -35,22 +36,26 @@ export function DailyPiece({
         <LogCard log={log} logger={user} timeZone={timeZone} />
       </div>
 
-      {log.url && (
-        <p className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <p className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        {log.url && (
           <ExternalLink
             href={log.url}
             className="bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
           >
             Open the piece ↗︎
           </ExternalLink>
-          <Link
-            href={`/log?url=${encodeURIComponent(log.url)}`}
-            className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-background underline decoration-background/40 underline-offset-2 hover:decoration-accent"
-          >
-            Log it
-          </Link>
-        </p>
-      )}
+        )}
+        <Link
+          href={logItHref(log)}
+          className={
+            log.url
+              ? "font-structural text-xs font-bold uppercase tracking-[0.12em] text-background underline decoration-background/40 underline-offset-2 hover:decoration-accent"
+              : "bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
+          }
+        >
+          Log it
+        </Link>
+      </p>
     </section>
   );
 }

@@ -89,6 +89,9 @@ export interface NewLog {
   take?: string | null;
   rating?: number | null;
   viaUserId?: string | null; // who handed them this piece, when someone did
+  // The work to pool into, already resolved by the caller (a link's id, or
+  // a no-link piece picked from the suggestions). Computed when absent.
+  workId?: string;
 }
 
 // A feed entry: a shared log joined with the person who logged it.

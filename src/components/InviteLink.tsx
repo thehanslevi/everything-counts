@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { retireClipboardLink } from "@/lib/native";
 
 // Your personal invite link: whoever signs up through it starts by following
 // you. Hand-to-hand seeding, made one tap.
@@ -11,6 +12,8 @@ export function InviteLink({ handle }: { handle: string }) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(url);
+      // The app put this link there: the copy-to-log bar shouldn't offer it.
+      void retireClipboardLink();
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

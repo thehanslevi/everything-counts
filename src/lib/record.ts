@@ -5,6 +5,7 @@
 import { FORMS, type Form, type Log } from "@/lib/data/types";
 import { slugify } from "@/lib/slug";
 import { yearIn } from "@/lib/dates";
+import { fold } from "@/lib/fold";
 
 // What the browser needs to know about a log to filter it. The card itself
 // is drawn on the server and handed over alongside.
@@ -38,15 +39,7 @@ export interface RecordFacets {
 
 // Lowercase, accents off, apostrophes out, other punctuation to spaces, so
 // "zizek" finds "Žižek's" and "dont" finds "Don't".
-export function fold(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/['‘’ʼ]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
+export { fold };
 
 export function entryFor(log: Log, timeZone?: string): RecordEntry {
   return {

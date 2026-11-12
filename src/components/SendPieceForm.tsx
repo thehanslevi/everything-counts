@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { sendPiece } from "@/app/actions";
 import type { Profile } from "@/lib/data/types";
+import { retireClipboardLink } from "@/lib/native";
 
 // Share this piece. Two ways out of one button:
 //  - a link, for anyone: the phone's own share sheet (Messages, mail,
@@ -49,6 +50,8 @@ export function SendPieceForm({
     }
     try {
       await navigator.clipboard.writeText(link);
+      // The app put this link there: the copy-to-log bar shouldn't offer it.
+      void retireClipboardLink();
       setDone("Link copied.");
       setOpen(false);
     } catch {

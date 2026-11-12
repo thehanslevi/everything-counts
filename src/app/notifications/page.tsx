@@ -4,12 +4,14 @@ import {
   getNotifications,
   getSessionProfile,
   markNotificationsRead,
+  getNewcomerIds,
 } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
 import { TestPushButton } from "@/components/TestPushButton";
 import { TestWeeklyButton } from "@/components/TestWeeklyButton";
+import { NewcomerNote } from "@/components/NewcomerNote";
 import type { AppNotification } from "@/lib/data/types";
 
 const FOUNDER_HANDLE = "hrlevinson";
@@ -35,7 +37,11 @@ export default async function NotificationsPage() {
   const { profile, hasSession } = await getSessionProfile();
   if (!profile) redirect(hasSession ? "/welcome" : "/signin");
 
-  const items = await getNotifications(profile.id);
+  const isFounder = profile.handle === FOUNDER_HANDLE;
+  const [items, newcomers] = await Promise.all([
+    getNotifications(profile.id),
+    isFounder ? getNewcomerIds() : Promise.resolve(null),
+  ]);
   // Clear the unread badge now that they're looking; the fetched rows keep
   // their original read flags so this visit still highlights what's new.
   await markNotificationsRead();
@@ -51,10 +57,13 @@ export default async function NotificationsPage() {
           </h2>
         </div>
 
-        {profile.handle === FOUNDER_HANDLE && (
+        {isFounder && (
           <>
             <TestPushButton />
             <TestWeeklyButton />
+            <NewcomerNote
+              count={(newcomers ?? []).filter((id) => id !== profile.id).length}
+            />
           </>
         )}
 

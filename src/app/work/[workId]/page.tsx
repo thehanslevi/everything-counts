@@ -23,6 +23,7 @@ import { shareSigValid, shareUrl } from "@/lib/share";
 import { formatDay } from "@/lib/dates";
 import { getTimeZone } from "@/lib/timezone";
 import type { Log, Profile, Reply } from "@/lib/data/types";
+import { logItHref } from "@/lib/loghref";
 
 export const dynamic = "force-dynamic";
 
@@ -116,9 +117,9 @@ export default async function WorkPage({
             {sender.name} sent you this
           </p>
           {viewer
-            ? work.url && (
+            ? (
                 <Link
-                  href={`/log?url=${encodeURIComponent(work.url)}`}
+                  href={logItHref({ ...work, workId: work.id })}
                   className="bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
                 >
                   Log it
@@ -127,7 +128,11 @@ export default async function WorkPage({
             : (
                 <Link
                   href={`/signin?ref=${sender.handle}${
-                    work.url ? `&piece=${encodeURIComponent(work.url)}` : ""
+                    work.url
+                      ? `&piece=${encodeURIComponent(work.url)}`
+                      : // No link to carry: after signing in, the log form
+                        // opens with this piece's details and its work.
+                        `&next=${encodeURIComponent(logItHref({ ...work, workId: work.id }))}`
                   }`}
                   className="bg-accent px-4 py-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-white transition-opacity hover:opacity-85"
                 >
@@ -190,6 +195,16 @@ export default async function WorkPage({
               >
                 Open the piece ↗︎
               </ExternalLink>
+            )}
+            {/* For anyone signed in who hasn't logged it (the banner above
+                has its own when someone sent it). */}
+            {viewer && !you && !sender && (
+              <Link
+                href={logItHref({ ...work, workId: work.id })}
+                className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-accent hover:underline"
+              >
+                Log it
+              </Link>
             )}
             <CopyLinkButton />
             {viewer && (

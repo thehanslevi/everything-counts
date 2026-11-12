@@ -7,6 +7,8 @@ import {
 import { Mark } from "@/components/Mark";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { TimeZoneSave } from "@/components/TimeZoneSave";
+import { ClipboardOffer } from "@/components/ClipboardOffer";
+import { WidgetSync } from "@/components/WidgetSync";
 
 // The masthead and section nav, shared across pages. Loud Japanese-poster
 // treatment (Yokoo mode). Session-aware: signed-out visitors get a sign-in
@@ -42,6 +44,9 @@ export async function SiteHeader({
   return (
     <header>
       {profile && <TimeZoneSave saved={savedZone} />}
+      {/* The iPhone app's home screen widget follows whoever is signed in. */}
+      {(profile || !hasSession) && <WidgetSync handle={profile?.handle ?? null} />}
+      {profile && <ClipboardOffer />}
       <div className="flex items-start justify-between gap-4 sm:gap-6">
         <Link href="/" aria-label="Everything Counts home">
           <h1 className="font-structural text-[2.35rem] font-black uppercase leading-[0.86] tracking-[-0.02em] text-foreground sm:text-7xl">
