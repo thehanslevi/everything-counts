@@ -34,6 +34,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        // Widget hand-off: the widget opens everythingcounts://open?path=<path>
+        // (path=/ for the count, path=/work/<id> for a piece). Only a plain
+        // path on our own site is followed; anything else falls through.
+        if url.scheme == "everythingcounts", url.host?.lowercased() == "open" {
+            let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "path" })?.value
+            if let path = path,
+               let target = AppDelegate.siteURL(forPath: path),
+               let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
+                #if DEBUG
+                NSLog("EC open route: %@", target.absoluteString)
+                #endif
+                DispatchQueue.main.async {
+                    _ = bridgeVC.webView?.load(URLRequest(url: target))
+                }
+                return true
+            }
+        }
+
         // Share-sheet hand-off: the share extension opens
         // everythingcounts://log?url=<shared url>&title=…&author=…&source=…&image=…
         // (the details are there when the page was shared from Safari). Route
@@ -65,6 +84,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         // Keep the Capacitor App API informed for any other URL opens.
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+    }
+
+    private static let siteHost = "everything-counts.vercel.app"
+
+    /// The site page a widget link asks for, or nil unless `path` is a plain
+    /// path on our own site: it starts with "/" but not "//", holds no
+    /// backslash, whitespace or control character, parses as a URL path, and
+    /// the address it makes still points at everything-counts.vercel.app.
+    static func siteURL(forPath path: String) -> URL? {
+        guard path.hasPrefix("/"), !path.hasPrefix("//"),
+              !path.contains("\\"),
+              path.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
+              path.rangeOfCharacter(from: .controlCharacters) == nil,
+              let parts = URLComponents(string: path),
+              parts.scheme == nil, parts.host == nil, parts.path.hasPrefix("/"),
+              let target = URL(string: "https://" + siteHost + path),
+              target.scheme == "https", target.host == siteHost
+        else { return nil }
+        return target
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

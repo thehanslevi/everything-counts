@@ -4,3 +4,4 @@ ios/App/App/public
 ios/App/DerivedData
 ios/App/output
 **/xcuserdata
+/widget-previews/

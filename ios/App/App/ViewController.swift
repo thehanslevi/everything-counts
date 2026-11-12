@@ -2,8 +2,16 @@ import UIKit
 import Capacitor
 
 // The app's main (and only) view controller: Capacitor's bridge plus native
-// pull-to-refresh, the gesture that makes a webview feel like an app.
+// pull-to-refresh, the gesture that makes a webview feel like an app, plus the
+// app's own ECNative plugin.
 class ViewController: CAPBridgeViewController {
+
+    // The app's own plugin (clipboard, widget account, foreground event),
+    // registered before the page loads so the site can call it right away.
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        bridge?.registerPluginInstance(ECNativePlugin())
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()

@@ -7,5 +7,11 @@
 	     "development" value (sandbox APNs). -->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- Shared with the home-screen widget: the app writes the signed-in
+	     handle here and the widget reads it. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.everythingcounts.app</string>
+	</array>
 </dict>
 </plist>
