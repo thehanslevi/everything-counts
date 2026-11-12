@@ -56,13 +56,26 @@ export function workIdFor(url: string): string {
   return fnv1a(normalizeUrl(url));
 }
 
+// Parameters a feed adds to say "this click came from RSS". The article's
+// own address, the one a reader shares or pastes, doesn't have them.
+function isFeedParam(key: string, value: string): boolean {
+  const k = key.toLowerCase();
+  const v = value.toLowerCase();
+  return (
+    k === "at_medium" || k === "at_campaign" || // BBC
+    k.startsWith("syn-") || // FT
+    ((k === "via" || k === "mod") && v.startsWith("rss")) // Slate, WSJ
+  );
+}
+
 // The link as a reader would want to keep it: the same address without the
-// feed's tracking parameters (utm_source=rss and the like) or fragment.
+// feed's tracking parameters or fragment. Rows are keyed by this, so a piece
+// picked from the catalog pools with the same piece pasted from the page.
 export function cleanUrl(raw: string): string {
   try {
     const u = new URL(raw);
-    for (const key of [...u.searchParams.keys()]) {
-      if (isTrackingParam(key)) u.searchParams.delete(key);
+    for (const [key, value] of [...u.searchParams.entries()]) {
+      if (isTrackingParam(key) || isFeedParam(key, value)) u.searchParams.delete(key);
     }
     u.hash = "";
     return u.href;

@@ -15,7 +15,6 @@ export interface CatalogResult {
   byStatus?: Record<string, number>;
   problems?: { id: number; status: string }[];
   skipped?: string;
-  failures?: string[];
   error?: string;
 }
 
@@ -33,9 +32,11 @@ export async function refreshCatalog(body: { force?: boolean }): Promise<Catalog
       },
       body: JSON.stringify(body),
     });
-    return ((await res.json().catch(() => null)) as CatalogResult | null) ?? {
-      ok: res.ok,
-    };
+    const answer = (await res.json().catch(() => null)) as CatalogResult | null;
+    if (!res.ok) {
+      return { ...answer, ok: false, error: answer?.error ?? `The catalog function answered ${res.status}.` };
+    }
+    return answer ?? { ok: true };
   } catch (err) {
     console.error("refreshCatalog failed", err);
     return null;

@@ -210,7 +210,9 @@ export function LogForm({
   // flicker while typing); with nothing typed there is no list at all. The
   // record's pieces come first; then, under "Elsewhere", the publications'
   // own recent pieces, then the outside catalogs. A piece already shown
-  // higher up (same work, or same title and author) isn't shown again.
+  // higher up isn't shown again: the same work when it has one (two weeks
+  // of a column can share a title and author), otherwise the same title
+  // and author.
   const current = typedTitle ? suggest : null;
   const recordItems = current?.record ?? [];
   const shown = new Set<string>();
@@ -222,7 +224,7 @@ export function LogForm({
   const elsewhereItems: Suggestion[] = [];
   for (const s of [...(current?.catalog ?? []), ...(current?.elsewhere ?? [])]) {
     const same = sameness(s.title, s.author);
-    if (shown.has(same) || (s.workId && seenWork.has(s.workId))) continue;
+    if (s.workId ? seenWork.has(s.workId) : shown.has(same)) continue;
     shown.add(same);
     if (s.workId) seenWork.add(s.workId);
     elsewhereItems.push(s);

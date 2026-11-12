@@ -79,7 +79,19 @@ export function plain(raw: string | null | undefined): string {
   text = decodeEntities(text);
   text = text.replace(/<[^>]*>/g, " ");
   text = decodeEntities(text);
-  return text.replace(/\s+/g, " ").trim();
+  return wellFormed(text).replace(/\s+/g, " ").trim();
+}
+
+// Text the database will take: no control characters (NUL among them), and
+// no half of a surrogate pair left by a bad character reference.
+function wellFormed(text: string): string {
+  const clean = text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
+  return clean.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, "");
+}
+
+// Cut to `max` characters without splitting one in two.
+function cut(text: string, max: number): string {
+  return Array.from(text).slice(0, max).join("");
 }
 
 // --- Elements ------------------------------------------------------------------
@@ -90,13 +102,13 @@ function escapeName(name: string): string {
 
 // The inner content of the first <name ...>...</name> in a block, or null.
 function inner(block: string, name: string): string | null {
-  const re = new RegExp(`<${escapeName(name)}(?:\\s[^>]*)?>([\\s\\S]*?)</${escapeName(name)}\\s*>`, "i");
+  const re = new RegExp(`<${escapeName(name)}(?:\\s[^>]*[^/>])?>([\\s\\S]*?)</${escapeName(name)}\\s*>`, "i");
   return block.match(re)?.[1] ?? null;
 }
 
 // Every inner content of <name>...</name> in a block.
 function inners(block: string, name: string): string[] {
-  const re = new RegExp(`<${escapeName(name)}(?:\\s[^>]*)?>([\\s\\S]*?)</${escapeName(name)}\\s*>`, "gi");
+  const re = new RegExp(`<${escapeName(name)}(?:\\s[^>]*[^/>])?>([\\s\\S]*?)</${escapeName(name)}\\s*>`, "gi");
   return [...block.matchAll(re)].map((m) => m[1]);
 }
 
@@ -108,7 +120,7 @@ function tags(block: string, name: string): Record<string, string>[] {
 
 function attributes(text: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of text.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)')/g)) {
+  for (const m of text.matchAll(/(?:^|\s)([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)')/g)) {
     out[m[1].toLowerCase()] = decodeEntities(m[3] ?? m[4] ?? "");
   }
   return out;
@@ -126,7 +138,7 @@ interface RawItem {
 
 export function readItems(xml: string): RawItem[] {
   // Comments can hold markup that isn't part of the feed.
-  let doc = xml.replace(/<!--[\s\S]*?-->/g, "");
+  let doc = withoutComments(xml);
   // Some Atom feeds name every element with a prefix (<ns6:feed>,
   // <ns6:entry>). When the root itself is prefixed, drop the Atom prefix so
   // the elements read as plain Atom. (RSS feeds that only borrow
@@ -136,8 +148,48 @@ export function readItems(xml: string): RawItem[] {
     doc = doc.replace(new RegExp(`<(/?)${escapeName(prefix)}:`, "g"), "<$1");
   }
   const atom = /<feed[\s>]/i.test(doc) && /<entry[\s>]/i.test(doc);
-  const blocks = atom ? inners(doc, "entry") : inners(doc, "item");
-  return blocks.slice(0, MAX_ITEMS).map((block) => (atom ? atomItem(block) : rssItem(block)));
+  const blocks = elements(doc, atom ? "entry" : "item", MAX_ITEMS);
+  return blocks.map((block) => (atom ? atomItem(block) : rssItem(block)));
+}
+
+// The feed without <!-- comments -->. A scan, not a pattern, so a comment
+// that never closes ends the scan instead of being retried at every turn.
+function withoutComments(xml: string): string {
+  let out = "";
+  let at = 0;
+  for (;;) {
+    const open = xml.indexOf("<!--", at);
+    if (open === -1) return out + xml.slice(at);
+    out += xml.slice(at, open);
+    const close = xml.indexOf("-->", open + 4);
+    if (close === -1) return out;
+    at = close + 3;
+  }
+}
+
+// The contents of each <name>…</name> (an <item> or <entry>), found by
+// scanning forward. An opener with no closer ends the scan.
+function elements(doc: string, name: string, max: number): string[] {
+  const lower = doc.toLowerCase();
+  const open = `<${name}`;
+  const close = `</${name}`;
+  const out: string[] = [];
+  let at = 0;
+  while (out.length < max) {
+    let start = lower.indexOf(open, at);
+    // Skip longer names that share the start (<items>, <entry-…>).
+    while (start !== -1 && !/[\s>]/.test(lower[start + open.length] ?? "")) {
+      start = lower.indexOf(open, start + 1);
+    }
+    if (start === -1) break;
+    const bodyStart = lower.indexOf(">", start);
+    if (bodyStart === -1) break;
+    const end = lower.indexOf(close, bodyStart);
+    if (end === -1) break;
+    out.push(doc.slice(bodyStart + 1, end));
+    at = end + close.length;
+  }
+  return out;
 }
 
 function rssItem(block: string): RawItem {
@@ -147,8 +199,8 @@ function rssItem(block: string): RawItem {
   const guidIsLink = guid !== null &&
     /^https?:\/\//i.test(plain(guid)) &&
     !/ispermalink\s*=\s*["']false["']/i.test(block.match(/<guid(\s[^>]*)?>/i)?.[1] ?? "");
-  const link = plain(inner(block, "feedburner:origLink")) ||
-    plain(inner(block, "link")) ||
+  const link = linkText(plain(inner(block, "feedburner:origLink"))) ||
+    linkText(plain(inner(block, "link"))) ||
     (guidIsLink ? plain(guid) : "");
   const creators = inners(block, "dc:creator").map((c) => person(plain(c))).filter(Boolean);
   const author = creators.length > 0
@@ -187,6 +239,14 @@ function person(text: string): string {
   return /@/.test(name) ? "" : name;
 }
 
+// What RSS gives as a link, if it looks like one: an absolute web address,
+// a //host/… one, or a /path on the feed's own site. Anything else (a stray
+// word, an empty element) is no link, so the guid gets its turn.
+function linkText(text: string): string {
+  if (!text || /\s/.test(text)) return "";
+  return /^(https?:)?\/\//i.test(text) || text.startsWith("/") ? text : "";
+}
+
 // RSS <author> is often "jane@site.com (Jane Doe)": keep the name. A bare
 // address isn't an author worth showing.
 function rssAuthor(text: string): string {
@@ -208,13 +268,22 @@ function imageIn(block: string): string {
       if (url && isImage) return url;
     }
   }
-  // An <img> in the item's own HTML.
+  // The first real <img> in the item's own HTML: not an emoji, not a
+  // tracking pixel.
   for (const name of ["content:encoded", "content", "description", "summary"]) {
     const html = inner(block, name);
     if (!html) continue;
     const decoded = decodeEntities(unwrapCdata(html));
-    const src = decoded.match(/<img\b[^>]*?\ssrc\s*=\s*["']([^"']+)["']/i)?.[1];
-    if (src) return decodeEntities(src);
+    for (const m of decoded.matchAll(/<img\b([^>]*)>/gi)) {
+      const attrs = attributes(m[1]);
+      const src = attrs.src ?? "";
+      const tiny = Number(attrs.width) <= 2 || Number(attrs.height) <= 2;
+      if (!src.startsWith("https://")) continue;
+      if (/wp-smiley|emoji/i.test(attrs.class ?? "")) continue;
+      if (/\/\/(s\.w\.org|pixel\.wp\.com|stats\.wp\.com|feeds\.feedburner\.com)\//i.test(src)) continue;
+      if ((attrs.width || attrs.height) && tiny) continue;
+      return src;
+    }
   }
   return "";
 }
@@ -247,7 +316,7 @@ function isoDate(text: string): string | null {
 export function catalogRows(xml: string, feed: FeedSource, oldest: Date): CatalogRow[] {
   const rows = new Map<string, CatalogRow>();
   for (const item of readItems(xml)) {
-    const title = item.title.slice(0, 300).trim();
+    const title = cut(item.title, 300).trim();
     const linked = absolute(item.link, feed.url);
     if (!title || !linked) continue;
     const url = cleanUrl(linked);
@@ -262,7 +331,7 @@ export function catalogRows(xml: string, feed: FeedSource, oldest: Date): Catalo
       id,
       url,
       title,
-      author: item.author ? item.author.slice(0, 200) : null,
+      author: item.author ? cut(item.author, 200) : null,
       source: feed.publication,
       image: image && image.startsWith("https://") && image.length <= 2000 ? image : null,
       form: feed.form,

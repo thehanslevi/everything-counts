@@ -36,37 +36,67 @@ const json = (body: unknown, status = 200) =>
 interface FeedRow extends FeedSource {
   etag: string | null;
   last_modified: string | null;
-  last_fetched_at: string | null;
 }
 
-interface FeedResult {
-  id: number;
-  status: string; // "ok", "unchanged", "http 403", "timeout", "error: …"
+interface Fetched {
+  status: string; // "ok", "no items", "unchanged", "http 403", "timeout", "error", "too large"
   rows: CatalogRow[];
   etag: string | null;
   lastModified: string | null;
 }
 
-async function fetchFeed(feed: FeedRow, oldest: Date): Promise<FeedResult> {
+// Read a response body up to MAX_BYTES, stopping the download there.
+async function readCapped(res: Response): Promise<string | null> {
+  const declared = Number(res.headers.get("content-length") ?? "0");
+  if (declared > MAX_BYTES) return null;
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    all.set(c, at);
+    at += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
+
+// One feed. With `force` the conditional headers are left off, so the feed
+// is read in full even if it hasn't changed (a repair, or a reader change).
+async function fetchFeed(feed: FeedRow, oldest: Date, force: boolean): Promise<Fetched> {
   const headers: Record<string, string> = {
     "user-agent": USER_AGENT,
     accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5",
   };
-  if (feed.etag) headers["if-none-match"] = feed.etag;
-  if (feed.last_modified) headers["if-modified-since"] = feed.last_modified;
-  const base = { id: feed.id, etag: feed.etag, lastModified: feed.last_modified, rows: [] };
+  if (!force && feed.etag) headers["if-none-match"] = feed.etag;
+  if (!force && feed.last_modified) headers["if-modified-since"] = feed.last_modified;
+  const none = { rows: [], etag: null, lastModified: null };
   try {
     const res = await fetch(feed.url, {
       headers,
       redirect: "follow",
       signal: AbortSignal.timeout(15_000),
     });
-    if (res.status === 304) return { ...base, status: "unchanged" };
-    if (!res.ok) return { ...base, status: `http ${res.status}` };
-    const xml = (await res.text()).slice(0, MAX_BYTES);
+    if (res.status === 304) return { ...none, status: "unchanged" };
+    if (!res.ok) {
+      await res.body?.cancel();
+      return { ...none, status: `http ${res.status}` };
+    }
+    const xml = await readCapped(res);
+    if (xml === null) return { ...none, status: "too large" };
     const rows = catalogRows(xml, feed, oldest);
     return {
-      id: feed.id,
       status: rows.length > 0 ? "ok" : "no items",
       rows,
       etag: res.headers.get("etag"),
@@ -75,10 +105,8 @@ async function fetchFeed(feed: FeedRow, oldest: Date): Promise<FeedResult> {
   } catch (err) {
     const name = err instanceof Error ? err.name : "";
     return {
-      ...base,
-      status: name === "TimeoutError" || name === "AbortError"
-        ? "timeout"
-        : `error: ${String(err).slice(0, 120)}`,
+      ...none,
+      status: name === "TimeoutError" || name === "AbortError" ? "timeout" : "error",
     };
   }
 }
@@ -108,53 +136,65 @@ Deno.serve(async (req) => {
   } catch {
     // no body is fine
   }
+  const force = Boolean(body.force);
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const { data: feeds, error } = await supabase
-    .from("catalog_feeds")
-    .select("id, url, publication, form, etag, last_modified, last_fetched_at")
-    .eq("active", true);
-  if (error) return json({ ok: false, error: error.message }, 500);
-
   const now = Date.now();
-  const due = ((feeds ?? []) as FeedRow[]).filter(
-    (f) =>
-      body.force ||
-      !f.last_fetched_at ||
-      now - Date.parse(f.last_fetched_at) > 3 * HOUR,
+
+  // Claim the feeds that are due, in one statement: they're stamped as
+  // fetched now and returned. A second run arriving at the same moment finds
+  // them stamped and claims nothing, so no feed is fetched twice. A run that
+  // dies after claiming leaves its feeds resting three hours, not hammered.
+  let claim = supabase
+    .from("catalog_feeds")
+    .update({ last_fetched_at: new Date(now).toISOString() })
+    .eq("active", true);
+  if (!force) {
+    const rested = new Date(now - 3 * HOUR).toISOString();
+    claim = claim.or(`last_fetched_at.is.null,last_fetched_at.lt."${rested}"`);
+  }
+  const { data: claimed, error } = await claim.select(
+    "id, url, publication, form, etag, last_modified",
   );
+  if (error) return json({ ok: false, error: "could not read the feeds" }, 500);
+  const due = (claimed ?? []) as FeedRow[];
   if (due.length === 0) return json({ ok: true, skipped: "fetched within three hours" });
 
   const oldest = new Date(now - KEEP_DAYS * 24 * HOUR);
-  const results = await pool(due, AT_ONCE, (feed) => fetchFeed(feed, oldest));
 
-  // One row per work across all feeds (two feeds can carry the same piece).
-  const rows = new Map<string, CatalogRow>();
-  for (const r of results) for (const row of r.rows) if (!rows.has(row.id)) rows.set(row.id, row);
-  const all = [...rows.values()];
-  const failures: string[] = [];
-  for (let i = 0; i < all.length; i += 500) {
-    const { error: upsertError } = await supabase
-      .from("catalog")
-      .upsert(all.slice(i, i + 500), { onConflict: "id" });
-    if (upsertError) failures.push(upsertError.message);
-  }
-
-  const stamp = new Date().toISOString();
-  await Promise.all(
-    results.map((r) =>
-      supabase
-        .from("catalog_feeds")
-        .update({
-          last_fetched_at: stamp,
-          last_status: r.status,
-          last_count: r.rows.length,
-          etag: r.status === "ok" ? r.etag : undefined,
-          last_modified: r.status === "ok" ? r.lastModified : undefined,
-        })
-        .eq("id", r.id)
-    ),
-  );
+  // Each feed is fetched, stored and noted on its own, so one feed's trouble
+  // (or the run being cut short) costs only that feed. Its ETag and
+  // Last-Modified are kept only once its pieces are stored; otherwise they're
+  // cleared, so the next run reads the feed in full rather than being told
+  // "unchanged" about pieces that never landed.
+  const results = await pool(due, AT_ONCE, async (feed) => {
+    const got = await fetchFeed(feed, oldest, force);
+    let status = got.status;
+    let stored = true;
+    for (let i = 0; i < got.rows.length; i += 200) {
+      const { error: upsertError } = await supabase
+        .from("catalog")
+        .upsert(got.rows.slice(i, i + 200), { onConflict: "id" });
+      if (upsertError) {
+        stored = false;
+        status = "store failed";
+        console.error("catalog upsert", feed.id, upsertError.message);
+        break;
+      }
+    }
+    const fresh = got.status === "ok";
+    await supabase
+      .from("catalog_feeds")
+      .update({
+        last_status: status,
+        last_count: got.rows.length,
+        ...(fresh
+          ? { etag: stored ? got.etag : null, last_modified: stored ? got.lastModified : null }
+          : {}),
+      })
+      .eq("id", feed.id);
+    return { id: feed.id, status, pieces: stored ? got.rows.length : 0 };
+  });
 
   // The catalog reaches back KEEP_DAYS; older pieces live on in the logs
   // of anyone who read them.
@@ -163,18 +203,13 @@ Deno.serve(async (req) => {
   await supabase.from("catalog").delete().is("published_at", null).lt("added_at", cutoff);
 
   const byStatus: Record<string, number> = {};
-  for (const r of results) {
-    const key = r.status.startsWith("error") ? "error" : r.status;
-    byStatus[key] = (byStatus[key] ?? 0) + 1;
-  }
+  for (const r of results) byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+  const problems = results.filter((r) => r.status !== "ok" && r.status !== "unchanged");
   return json({
-    ok: failures.length === 0,
+    ok: !results.some((r) => r.status === "store failed"),
     feeds: due.length,
-    pieces: all.length,
+    pieces: results.reduce((sum, r) => sum + r.pieces, 0),
     byStatus,
-    problems: results
-      .filter((r) => r.status !== "ok" && r.status !== "unchanged")
-      .map((r) => ({ id: r.id, status: r.status })),
-    failures,
+    problems: problems.map((r) => ({ id: r.id, status: r.status })),
   });
 });

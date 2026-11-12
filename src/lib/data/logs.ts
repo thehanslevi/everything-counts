@@ -4,7 +4,7 @@ import { slugify } from "@/lib/slug";
 import type { AfterLogFacts } from "@/lib/afterlog";
 import { pickDaily } from "@/lib/daily";
 import { monthKeyIn } from "@/lib/dates";
-import { anchorWord, titleScore, type Suggestion } from "@/lib/suggest-core";
+import { anchorWord, cleanWords, titleScore, type Suggestion } from "@/lib/suggest-core";
 import {
   logFromRow,
   profileFromRow,
@@ -219,11 +219,23 @@ export async function suggestFromCatalog(
   const anchor = anchorWord(query);
   if (anchor.length < 2) return [];
   const supabase = await createClient();
-  const pattern = likePattern(anchor);
-  const { data, error } = await supabase
+  // The catalog is large, so every typed word must appear in the title or
+  // the author (the ranking below asks the same), not only the longest:
+  // a common word alone could fill the first 200 rows with other pieces.
+  // Up to four words, longest first; one-letter words are left to the
+  // ranking.
+  const words = [...new Set(cleanWords(query))]
+    .filter((w) => w.length >= 2)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 4);
+  let request = supabase
     .from("catalog")
-    .select("id, url, title, author, source, image, form, published_at")
-    .or(`title.ilike.${pattern},author.ilike.${pattern}`)
+    .select("id, url, title, author, source, image, form, published_at");
+  for (const word of words) {
+    const pattern = likePattern(word);
+    request = request.or(`title.ilike.${pattern},author.ilike.${pattern}`);
+  }
+  const { data, error } = await request
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(200);
   if (error) return [];

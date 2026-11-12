@@ -838,13 +838,12 @@ export async function refreshCatalogNow(): Promise<ActionResult> {
   if (result.error) return { ok: false, error: result.error };
   if (result.skipped) return { ok: true, message: `Skipped: ${result.skipped}.` };
   const trouble = result.problems?.length ?? 0;
-  return {
-    ok: result.ok !== false,
-    message:
-      `${result.pieces ?? 0} pieces from ${result.feeds ?? 0} feeds` +
-      (trouble > 0 ? `; ${trouble} ${trouble === 1 ? "feed" : "feeds"} didn't answer.` : "."),
-    error: result.failures?.length ? result.failures[0] : undefined,
-  };
+  const summary =
+    `${result.pieces ?? 0} pieces from ${result.feeds ?? 0} feeds` +
+    (trouble > 0 ? `; ${trouble} ${trouble === 1 ? "feed" : "feeds"} with trouble.` : ".");
+  return result.ok === false
+    ? { ok: false, error: `${summary} Some pieces didn't save.` }
+    : { ok: true, message: summary };
 }
 
 // --- Push notifications ------------------------------------------------------
