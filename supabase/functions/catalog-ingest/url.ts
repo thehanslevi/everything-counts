@@ -78,6 +78,10 @@ export function cleanUrl(raw: string): string {
       if (isTrackingParam(key) || isFeedParam(key, value)) u.searchParams.delete(key);
     }
     u.hash = "";
+    // Feeds that still say http:// (New York's feedburner feeds) point at
+    // pages served over https: keep the address a reader would paste. The
+    // work id ignores the scheme, so it doesn't change.
+    if (u.protocol === "http:") u.protocol = "https:";
     return u.href;
   } catch {
     return raw;
