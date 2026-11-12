@@ -126,7 +126,15 @@ interface RawItem {
 
 export function readItems(xml: string): RawItem[] {
   // Comments can hold markup that isn't part of the feed.
-  const doc = xml.replace(/<!--[\s\S]*?-->/g, "");
+  let doc = xml.replace(/<!--[\s\S]*?-->/g, "");
+  // Some Atom feeds name every element with a prefix (<ns6:feed>,
+  // <ns6:entry>). When the root itself is prefixed, drop the Atom prefix so
+  // the elements read as plain Atom. (RSS feeds that only borrow
+  // <atom:link> keep theirs.)
+  const prefix = doc.match(/xmlns:([\w.-]+)\s*=\s*["']http:\/\/www\.w3\.org\/2005\/Atom["']/)?.[1];
+  if (prefix && new RegExp(`<${escapeName(prefix)}:feed[\\s>]`).test(doc)) {
+    doc = doc.replace(new RegExp(`<(/?)${escapeName(prefix)}:`, "g"), "<$1");
+  }
   const atom = /<feed[\s>]/i.test(doc) && /<entry[\s>]/i.test(doc);
   const blocks = atom ? inners(doc, "entry") : inners(doc, "item");
   return blocks.slice(0, MAX_ITEMS).map((block) => (atom ? atomItem(block) : rssItem(block)));
@@ -142,8 +150,10 @@ function rssItem(block: string): RawItem {
   const link = plain(inner(block, "feedburner:origLink")) ||
     plain(inner(block, "link")) ||
     (guidIsLink ? plain(guid) : "");
-  const creators = inners(block, "dc:creator").map(plain).filter(Boolean);
-  const author = creators.length > 0 ? creators.join(", ") : rssAuthor(plain(inner(block, "author")));
+  const creators = inners(block, "dc:creator").map((c) => person(plain(c))).filter(Boolean);
+  const author = creators.length > 0
+    ? creators.join(", ")
+    : person(rssAuthor(plain(inner(block, "author"))));
   const date = plain(inner(block, "pubDate")) || plain(inner(block, "dc:date")) ||
     plain(inner(block, "published")) || plain(inner(block, "updated"));
   return {
@@ -159,7 +169,9 @@ function atomItem(block: string): RawItem {
   const links = tags(block, "link");
   const alternate = links.find((l) => (l.rel ?? "alternate") === "alternate" && l.href) ??
     links.find((l) => l.href);
-  const names = inners(block, "author").map((a) => plain(inner(a, "name") ?? a)).filter(Boolean);
+  const names = inners(block, "author")
+    .map((a) => person(plain(inner(a, "name") ?? a)))
+    .filter(Boolean);
   return {
     title: plain(inner(block, "title")),
     link: alternate?.href ?? "",
@@ -167,6 +179,12 @@ function atomItem(block: string): RawItem {
     date: plain(inner(block, "published")) || plain(inner(block, "updated")),
     image: imageIn(block),
   };
+}
+
+// A byline as a name: no leading "By", and an email address is no name.
+function person(text: string): string {
+  const name = text.replace(/^by\s+/i, "").trim();
+  return /@/.test(name) ? "" : name;
 }
 
 // RSS <author> is often "jane@site.com (Jane Doe)": keep the name. A bare
@@ -233,6 +251,8 @@ export function catalogRows(xml: string, feed: FeedSource, oldest: Date): Catalo
     const linked = absolute(item.link, feed.url);
     if (!title || !linked) continue;
     const url = cleanUrl(linked);
+    // Feeds mix in video and audio; the catalog is for reading.
+    if (/\/(videos?|podcasts?|audio|listen|iplayer|sounds)(\/|$)/i.test(new URL(url).pathname)) continue;
     const published = isoDate(item.date);
     if (published && Date.parse(published) < oldest.getTime()) continue;
     const image = absolute(item.image, feed.url);
