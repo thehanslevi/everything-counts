@@ -31,6 +31,7 @@ import { notify, notifyNewLog } from "@/lib/push";
 import { shareSigValid, shareUrl } from "@/lib/share";
 import { afterLogLine, localMonthStart } from "@/lib/afterlog";
 import { sendWeekly } from "@/lib/weekly";
+import { refreshCatalog } from "@/lib/catalog";
 import { isTimeZone } from "@/lib/dates";
 
 const SITE_URL = "https://everything-counts.vercel.app";
@@ -263,11 +264,16 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   }
 
   // A piece someone sent them rides along too, so it is the first thing
-  // they see once the account exists.
+  // they see once the account exists: its link, or for a piece with no
+  // link, its log-form address (/log?title=…&work=…).
   const piece = coerceUrl((formData.get("piece") as string | null) ?? "");
-  if (piece) {
+  const nextPath = safeNext(formData.get("next") as string | null);
+  const pending =
+    piece ??
+    (nextPath && nextPath.startsWith("/log?") && nextPath.length <= 2000 ? nextPath : null);
+  if (pending) {
     const cookieStore = await cookies();
-    cookieStore.set(PENDING_PIECE_COOKIE, piece, {
+    cookieStore.set(PENDING_PIECE_COOKIE, pending, {
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
@@ -385,14 +391,19 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
   // not an empty record. ?new=1 shows the first-log prompt and the
   // log-from-anywhere card once. If someone sent them a piece, that piece
   // is the first log, already filled in.
-  const pendingPiece = coerceUrl(
-    cookieStore.get(PENDING_PIECE_COOKIE)?.value ?? "",
-  );
+  const pending = cookieStore.get(PENDING_PIECE_COOKIE)?.value ?? "";
+  const pendingPiece = coerceUrl(pending);
+  const pendingPath =
+    !pendingPiece && pending.startsWith("/log?") && !pending.startsWith("//")
+      ? pending
+      : null;
   cookieStore.delete(PENDING_PIECE_COOKIE);
   redirect(
     pendingPiece
       ? `/log?new=1&url=${encodeURIComponent(pendingPiece)}`
-      : "/log?new=1",
+      : pendingPath
+        ? `${pendingPath}&new=1`
+        : "/log?new=1",
   );
 }
 
@@ -813,6 +824,26 @@ export async function sendNoteToNewcomers(message: string): Promise<ActionResult
     message: `Sent to ${phones} phone${phones === 1 ? "" : "s"} (${ids.length} ${
       ids.length === 1 ? "person" : "people"
     } without a log).`,
+  };
+}
+
+// Founder-only: refresh the title catalog from every feed now, ignoring the
+// three-hour rest, and say how it went.
+export async function refreshCatalogNow(): Promise<ActionResult> {
+  if ((await myHandle()) !== FOUNDER_HANDLE) {
+    return { ok: false, error: "Not available." };
+  }
+  const result = await refreshCatalog({ force: true });
+  if (!result) return { ok: false, error: "The catalog function didn't answer." };
+  if (result.error) return { ok: false, error: result.error };
+  if (result.skipped) return { ok: true, message: `Skipped: ${result.skipped}.` };
+  const trouble = result.problems?.length ?? 0;
+  return {
+    ok: result.ok !== false,
+    message:
+      `${result.pieces ?? 0} pieces from ${result.feeds ?? 0} feeds` +
+      (trouble > 0 ? `; ${trouble} ${trouble === 1 ? "feed" : "feeds"} didn't answer.` : "."),
+    error: result.failures?.length ? result.failures[0] : undefined,
   };
 }
 

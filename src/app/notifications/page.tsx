@@ -12,6 +12,7 @@ import { Avatar } from "@/components/Avatar";
 import { TestPushButton } from "@/components/TestPushButton";
 import { TestWeeklyButton } from "@/components/TestWeeklyButton";
 import { NewcomerNote } from "@/components/NewcomerNote";
+import { RefreshCatalogButton } from "@/components/RefreshCatalogButton";
 import type { AppNotification } from "@/lib/data/types";
 
 const FOUNDER_HANDLE = "hrlevinson";
@@ -61,6 +62,7 @@ export default async function NotificationsPage() {
           <>
             <TestPushButton />
             <TestWeeklyButton />
+            <RefreshCatalogButton />
             <NewcomerNote
               count={(newcomers ?? []).filter((id) => id !== profile.id).length}
             />

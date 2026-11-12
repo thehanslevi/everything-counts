@@ -7,7 +7,7 @@
 import { fold } from "@/lib/fold";
 import type { Form } from "@/lib/data/types";
 
-export type SuggestionOrigin = "record" | "wikidata" | "poetrydb";
+export type SuggestionOrigin = "record" | "catalog" | "wikidata" | "poetrydb";
 
 export interface Suggestion {
   key: string; // unique within one list
@@ -195,7 +195,8 @@ export function poemSuggestion(item: {
 // --- Putting the outside catalogs together -----------------------------------
 
 const ORIGIN_RANK: Record<SuggestionOrigin, number> = {
-  record: 3,
+  record: 4,
+  catalog: 3,
   wikidata: 2,
   poetrydb: 1,
 };

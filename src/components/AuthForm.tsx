@@ -87,6 +87,10 @@ export function AuthForm({
         {mode === "signup" && piece && (
           <input type="hidden" name="piece" value={piece} />
         )}
+        {/* A piece with no link rides along as its log-form address. */}
+        {mode === "signup" && !piece && next?.startsWith("/log?") && (
+          <input type="hidden" name="next" value={next} />
+        )}
         {mode === "signin" && next && (
           <input type="hidden" name="next" value={next} />
         )}

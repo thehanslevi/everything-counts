@@ -51,13 +51,15 @@ function linkIn(entry: string): string | null {
   return coerceUrl(text);
 }
 
-// What the suggestion list holds for the current query. The record answers
-// fast; the outside catalogs come after.
+// What the suggestion list holds for the current query. The record and the
+// publications' catalog answer fast; the outside catalogs come after.
 interface SuggestState {
   q: string;
   record: Suggestion[];
+  catalog: Suggestion[];
   elsewhere: Suggestion[];
   recordDone: boolean;
+  catalogDone: boolean;
   elsewhereDone: boolean;
 }
 
@@ -150,8 +152,8 @@ export function LogForm({
   const detailsFor = useRef<string | null>(
     prefill && Object.keys(prefill).length > 0 ? (initialUrl ?? null) : null,
   );
-  // Look the typed title up: the record first (fast), the outside catalogs
-  // after (slower), each shown as it comes. A short pause between keys
+  // Look the typed title up: the record and the publications' catalog first
+  // (fast), the outside catalogs after (slower), each shown as it comes. A short pause between keys
   // before asking; anything still out when the query changes is dropped.
   // When answers arrive the highlight goes back to none, so Enter never
   // picks a row that slid in under the reader's finger.
@@ -160,8 +162,16 @@ export function LogForm({
     const q = typedTitle;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      setSuggest({ q, record: [], elsewhere: [], recordDone: false, elsewhereDone: false });
-      const ask = (scope: "record" | "elsewhere") =>
+      setSuggest({
+        q,
+        record: [],
+        catalog: [],
+        elsewhere: [],
+        recordDone: false,
+        catalogDone: false,
+        elsewhereDone: false,
+      });
+      const ask = (scope: "record" | "catalog" | "elsewhere") =>
         fetch(`/api/suggest?scope=${scope}&q=${encodeURIComponent(q)}`, {
           signal: controller.signal,
         })
@@ -173,6 +183,13 @@ export function LogForm({
         setActive(-1);
         setSuggest((prev) =>
           prev && prev.q === q ? { ...prev, record: items, recordDone: true } : prev,
+        );
+      });
+      void ask("catalog").then((items) => {
+        if (controller.signal.aborted) return;
+        setActive(-1);
+        setSuggest((prev) =>
+          prev && prev.q === q ? { ...prev, catalog: items, catalogDone: true } : prev,
         );
       });
       void ask("elsewhere").then((items) => {
@@ -191,19 +208,32 @@ export function LogForm({
 
   // Until the new query's answers arrive, the last ones stay up (less
   // flicker while typing); with nothing typed there is no list at all. The
-  // record's pieces come first, and an outside catalog's copy of a piece
-  // already on the record isn't shown twice.
+  // record's pieces come first; then, under "Elsewhere", the publications'
+  // own recent pieces, then the outside catalogs. A piece already shown
+  // higher up (same work, or same title and author) isn't shown again.
   const current = typedTitle ? suggest : null;
   const recordItems = current?.record ?? [];
-  const onRecord = new Set(recordItems.map((s) => sameness(s.title, s.author)));
-  const elsewhereItems = (current?.elsewhere ?? []).filter(
-    (s) => !onRecord.has(sameness(s.title, s.author)),
-  );
+  const shown = new Set<string>();
+  const seenWork = new Set<string>();
+  for (const s of recordItems) {
+    shown.add(sameness(s.title, s.author));
+    if (s.workId) seenWork.add(s.workId);
+  }
+  const elsewhereItems: Suggestion[] = [];
+  for (const s of [...(current?.catalog ?? []), ...(current?.elsewhere ?? [])]) {
+    const same = sameness(s.title, s.author);
+    if (shown.has(same) || (s.workId && seenWork.has(s.workId))) continue;
+    shown.add(same);
+    if (s.workId) seenWork.add(s.workId);
+    elsewhereItems.push(s);
+  }
   const pieces = [...recordItems, ...elsewhereItems];
   const typedIndex = typedTitle ? pieces.length : -1;
   const optionCount = pieces.length + (typedTitle ? 1 : 0);
   const showList = listOpen && Boolean(typedTitle);
-  const searching = Boolean(current) && !(current!.recordDone && current!.elsewhereDone);
+  const searching =
+    Boolean(current) &&
+    !(current!.recordDone && current!.catalogDone && current!.elsewhereDone);
 
   // Keep the highlighted row in view as the arrow keys move through a list
   // taller than its box.

@@ -208,6 +208,57 @@ export async function suggestFromRecord(
     }));
 }
 
+// Title suggestions from the catalog: recent pieces from the publications'
+// own feeds (filled daily by the catalog-ingest edge function), best match
+// first, newest first among equals. Each carries the work id a log of its
+// link gets, so the form can drop one that's already on the record.
+export async function suggestFromCatalog(
+  query: string,
+  limit = 6,
+): Promise<Suggestion[]> {
+  const anchor = anchorWord(query);
+  if (anchor.length < 2) return [];
+  const supabase = await createClient();
+  const pattern = likePattern(anchor);
+  const { data, error } = await supabase
+    .from("catalog")
+    .select("id, url, title, author, source, image, form, published_at")
+    .or(`title.ilike.${pattern},author.ilike.${pattern}`)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(200);
+  if (error) return [];
+
+  type Row = {
+    id: string;
+    url: string;
+    title: string;
+    author: string | null;
+    source: string;
+    image: string | null;
+    form: string;
+    published_at: string | null;
+  };
+  return ((data ?? []) as Row[])
+    .map((row, order) => ({ row, order, score: titleScore(query, row.title, row.author) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .slice(0, limit)
+    .map(({ row }) => ({
+      key: `catalog:${row.id}`,
+      origin: "catalog" as const,
+      title: row.title,
+      author: row.author,
+      source: row.source,
+      form: row.form as Form,
+      url: row.url,
+      image: row.image,
+      workId: row.id,
+      readers: 0,
+      mineAt: null,
+      weight: 0,
+    }));
+}
+
 // Is there a shared log of this work? Guards the work id a form sends along
 // when a no-link piece was picked from the suggestions.
 export async function workExists(workId: string): Promise<boolean> {
