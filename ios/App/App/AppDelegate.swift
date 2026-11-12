@@ -35,8 +35,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Widget hand-off: the widget opens everythingcounts://open?path=<path>
-        // (path=/ for the count, path=/work/<id> for a piece). Only a plain
-        // path on our own site is followed; anything else falls through.
+        // (path=/ for the count, path=/work/<id> for a piece). Only those two
+        // paths are followed; anything else falls through.
         if url.scheme == "everythingcounts", url.host?.lowercased() == "open" {
             let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "path" })?.value
@@ -88,22 +88,43 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private static let siteHost = "everything-counts.vercel.app"
 
-    /// The site page a widget link asks for, or nil unless `path` is a plain
-    /// path on our own site: it starts with "/" but not "//", holds no
-    /// backslash, whitespace or control character, parses as a URL path, and
-    /// the address it makes still points at everything-counts.vercel.app.
+    /// The site page a widget link asks for, or nil unless `path` is one the
+    /// widget makes: "/" or "/work/<id>", with no query or fragment. Any app
+    /// or web page can open this route, so it stops short of other pages of
+    /// our own site too: the sign-in page's `next`, for one, could send the
+    /// webview on to another host. The plain-path checks stay underneath:
+    /// starts with "/" but not "//", no backslash, whitespace or control
+    /// character, parses as a URL path, and the address it makes still
+    /// points at everything-counts.vercel.app.
     static func siteURL(forPath path: String) -> URL? {
-        guard path.hasPrefix("/"), !path.hasPrefix("//"),
+        guard isWidgetPath(path),
+              path.hasPrefix("/"), !path.hasPrefix("//"),
               !path.contains("\\"),
               path.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
               path.rangeOfCharacter(from: .controlCharacters) == nil,
               let parts = URLComponents(string: path),
               parts.scheme == nil, parts.host == nil, parts.path.hasPrefix("/"),
+              parts.query == nil, parts.fragment == nil,
               let target = URL(string: "https://" + siteHost + path),
               target.scheme == "https", target.host == siteHost
         else { return nil }
         return target
     }
+
+    /// "/" or "/work/<id>", taken literally: the id is letters, digits, "-"
+    /// and "_" (work ids are base-36, the no-link ones with "t-" in front),
+    /// so a "%", "?", "#", "." or "/" never gets through.
+    private static func isWidgetPath(_ path: String) -> Bool {
+        if path == "/" { return true }
+        let prefix = "/work/"
+        guard path.hasPrefix(prefix) else { return false }
+        let id = path.unicodeScalars.dropFirst(prefix.unicodeScalars.count)
+        return !id.isEmpty && id.allSatisfy { workIdCharacters.contains($0) }
+    }
+
+    private static let workIdCharacters = CharacterSet(
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+    )
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         // Hand the APNs device token to Capacitor's PushNotifications plugin,

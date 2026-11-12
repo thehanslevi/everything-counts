@@ -74,8 +74,13 @@ enum CountLoader {
             return
         }
         let fallback = { CountCache.payload(for: handle).map(CountState.count) ?? .unavailable }
+        // `t` makes every request a new address, so no cache on the way (the
+        // phone's, or the CDN's, whatever cache header the route sends) can
+        // answer with a count from before the latest save. The route reads
+        // only handle and tz.
         let query = "?handle=" + AppLink.escape(handle, keeping: "")
             + "&tz=" + AppLink.escape(TimeZone.current.identifier, keeping: "")
+            + "&t=" + String(Int64(Date().timeIntervalSince1970 * 1000))
         guard let url = URL(string: endpoint + query) else {
             completion(fallback())
             return
@@ -100,10 +105,12 @@ enum CountLoader {
         }.resume()
     }
 
-    /// What can be shown without the network: for snapshots.
+    /// What can be shown without the network: for snapshots. With nothing
+    /// kept for this reader, "Tap to open." The sample is for the gallery
+    /// and the placeholder only; here it would pass for the reader's count.
     static func storedState() -> CountState {
         guard let handle = WidgetAccount.handle else { return .signedOut }
-        return CountCache.payload(for: handle).map(CountState.count) ?? .count(.sample)
+        return CountCache.payload(for: handle).map(CountState.count) ?? .unavailable
     }
 }
 

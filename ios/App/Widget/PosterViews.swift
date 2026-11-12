@@ -96,7 +96,10 @@ struct Numeral: View {
     var body: some View {
         let shift = (size * 0.05).rounded()
         ZStack(alignment: .bottomLeading) {
+            // The vermilion copy is print, not text: VoiceOver reads the
+            // count once.
             digits.foregroundColor(Poster.vermilion).offset(x: shift, y: shift)
+                .accessibilityHidden(true)
             digits.foregroundColor(ink.text)
         }
         .lineLimit(1)

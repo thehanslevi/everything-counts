@@ -11,7 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { markSvg } from "../src/lib/mark.ts";
 
 const OUT = "ios/App/Widget/Assets.xcassets/Seal.imageset";
-const POINTS = 64; // drawn at up to 64pt in the widget; smaller uses scale down
+const POINTS = 84; // drawn at up to 84pt (the medium note face); smaller uses scale down
 
 async function main() {
   await mkdir(OUT, { recursive: true });

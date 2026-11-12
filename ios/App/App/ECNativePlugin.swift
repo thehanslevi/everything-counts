@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import UniformTypeIdentifiers
 import Capacitor
 import WidgetKit
 
@@ -47,8 +48,15 @@ public class ECNativePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     // Is there a link on the clipboard? Asked without reading the clipboard:
-    // hasURLs and pattern detection never trigger iOS's paste prompt or the
-    // "pasted from" banner. Never touch .string or .url in here.
+    // hasURLs, types and pattern detection never trigger iOS's paste prompt
+    // or the "pasted from" banner. Never touch .string or .url in here.
+    //
+    // A URL item counts without detection: detection reads only text, so it
+    // misses a link copied as a URL alone (item providers, setObjects), and
+    // it matches mailto:, tel: and file: text anyway. A URL item's scheme
+    // can't be seen without reading it, so mailto: and tel: items still
+    // count; a file URL is told apart by its type (public.file-url) and
+    // doesn't.
     @objc func peekClipboard(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             let board = UIPasteboard.general
@@ -60,7 +68,8 @@ public class ECNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve(["hasLink": hasLink, "changeCount": changeCount])
             }
 
-            if board.hasURLs {
+            let isFile = board.types.contains(UTType.fileURL.identifier)
+            if board.hasURLs && !isFile {
                 answer(true)
             } else if board.hasStrings {
                 board.detectPatterns(for: [Self.webLinkPattern]) { result in
