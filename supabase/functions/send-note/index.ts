@@ -22,7 +22,7 @@
 //    other people's private logs; the service role can, so this is where it
 //    is checked. The email says they haven't logged, and it has to be true;
 //  - only people with email settings, since that row holds the token the
-//    "Stop these emails" link needs. No way to stop it, no email;
+//    "Stop email from Everything Counts" link needs. No way to stop it, no email;
 //  - not anyone whose `email_prefs.weekly` is false. That switch is the only
 //    email setting a person has, and turning it off means they don't want
 //    mail from the app. This is mail from the app;
