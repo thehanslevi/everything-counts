@@ -26,9 +26,28 @@ export interface Profile {
   handle: string;
   name: string;
   bio: string | null; // a short self-description
-  link: string | null; // one outbound link
+  link: string | null; // the first of `links`, kept for anything that reads one
   avatarUrl: string | null; // uploaded photo; null falls back to a generated seal
+  // Optional details. Only the full profile reads (a profile page, your own
+  // session) select these; embedded profiles elsewhere leave them empty.
+  pronouns: string | null;
+  location: string | null;
+  currentlyReading: string | null;
+  favoritePublications: string[];
+  links: string[]; // up to five outbound links, in the owner's order
 }
+
+// Limits on the optional profile details. The database enforces the same
+// numbers with CHECK constraints.
+export const PROFILE_LIMITS = {
+  pronouns: 40,
+  location: 80,
+  currentlyReading: 200,
+  publications: 10,
+  publicationLength: 60,
+  links: 5,
+  linkLength: 500,
+} as const;
 
 // An in-app notification, resolved for display.
 export interface AppNotification {
@@ -142,6 +161,12 @@ export interface ProfileRow {
   bio: string | null;
   link: string | null;
   avatar_url: string | null;
+  // Present only when the select asked for them.
+  pronouns?: string | null;
+  location?: string | null;
+  currently_reading?: string | null;
+  favorite_publications?: string[] | null;
+  links?: string[] | null;
 }
 
 export function logFromRow(row: LogRow): Log {
@@ -173,5 +198,11 @@ export function profileFromRow(row: ProfileRow): Profile {
     bio: row.bio,
     link: row.link,
     avatarUrl: row.avatar_url,
+    pronouns: row.pronouns ?? null,
+    location: row.location ?? null,
+    currentlyReading: row.currently_reading ?? null,
+    favoritePublications: row.favorite_publications ?? [],
+    // The list when there is one; otherwise the single older link.
+    links: row.links?.length ? row.links : row.link ? [row.link] : [],
   };
 }

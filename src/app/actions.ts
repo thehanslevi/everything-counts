@@ -26,7 +26,7 @@ import {
   getLoggerIds,
   getSessionProfile,
 } from "@/lib/data/logs";
-import { FORMS, type Form, type Log } from "@/lib/data/types";
+import { FORMS, PROFILE_LIMITS, type Form, type Log } from "@/lib/data/types";
 import { coerceUrl, isHandWorkId, workIdFor } from "@/lib/data/url";
 import { notify, notifyNewLog } from "@/lib/push";
 import { shareSigValid, shareUrl } from "@/lib/share";
@@ -418,19 +418,71 @@ export async function createProfile(formData: FormData): Promise<ActionResult> {
   );
 }
 
-// Edit your own profile: name, bio, one link, and optionally the avatar. The
-// avatarUrl field is tri-state: omitted = leave as-is, "" = clear back to the
-// generated seal, a URL = set the photo (already uploaded to Storage client-
-// side). The handle is not editable — it is the identity.
+// Edit your own profile: name, bio, the optional details (pronouns,
+// location, currently reading, favorite publications, up to five links), and
+// optionally the avatar. The avatarUrl field is tri-state: omitted = leave
+// as-is, "" = clear back to the generated seal, a URL = set the photo
+// (already uploaded to Storage client-side). The handle is not editable; it
+// is the identity. Limits match the database CHECK constraints.
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
-  const name = (formData.get("name") as string | null)?.trim() ?? "";
-  const bio = (formData.get("bio") as string | null) ?? null;
-  const linkRaw = (formData.get("link") as string | null)?.trim() ?? "";
+  const field = (key: string) =>
+    ((formData.get(key) as string | null) ?? "").trim();
+  const name = field("name");
+  const bio = field("bio") || null;
   if (!name) return { ok: false, error: "A name is required." };
 
-  let link: string | null = null;
-  if (linkRaw) {
-    link = /^https?:\/\//i.test(linkRaw) ? linkRaw : `https://${linkRaw}`;
+  const pronouns = field("pronouns") || null;
+  const location = field("location") || null;
+  const currentlyReading = field("currentlyReading") || null;
+  const tooLong: [string, string | null, number][] = [
+    ["Pronouns", pronouns, PROFILE_LIMITS.pronouns],
+    ["Location", location, PROFILE_LIMITS.location],
+    ["Currently reading", currentlyReading, PROFILE_LIMITS.currentlyReading],
+  ];
+  for (const [label, value, max] of tooLong) {
+    if (value && value.length > max) {
+      return { ok: false, error: `${label}: ${max} characters at most.` };
+    }
+  }
+
+  // Favorite publications arrive comma-separated. Same name twice (any case)
+  // counts once.
+  const seen = new Set<string>();
+  const favoritePublications = field("favoritePublications")
+    .split(",")
+    .map((p) => p.trim().replace(/\s+/g, " "))
+    .filter((p) => {
+      const key = p.toLowerCase();
+      if (!p || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  if (favoritePublications.length > PROFILE_LIMITS.publications) {
+    return {
+      ok: false,
+      error: `Up to ${PROFILE_LIMITS.publications} publications.`,
+    };
+  }
+  if (favoritePublications.some((p) => p.length > PROFILE_LIMITS.publicationLength)) {
+    return {
+      ok: false,
+      error: `Each publication: ${PROFILE_LIMITS.publicationLength} characters at most.`,
+    };
+  }
+
+  // Links: each must be a web address; a bare "your-site.com" gets https://.
+  const links: string[] = [];
+  for (const raw of formData.getAll("links")) {
+    const text = typeof raw === "string" ? raw.trim() : "";
+    if (!text) continue;
+    const url = coerceUrl(text);
+    if (!url || /\s/.test(text) || url.length > PROFILE_LIMITS.linkLength) {
+      return { ok: false, error: `Check this link: ${text.slice(0, 80)}` };
+    }
+    if (!links.includes(url)) links.push(url);
+  }
+  if (links.length > PROFILE_LIMITS.links) {
+    return { ok: false, error: `Up to ${PROFILE_LIMITS.links} links.` };
   }
 
   const hasAvatar = formData.has("avatarUrl");
@@ -439,7 +491,16 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
     : undefined;
 
   try {
-    await saveProfile({ name, bio, link, ...(hasAvatar ? { avatarUrl } : {}) });
+    await saveProfile({
+      name,
+      bio,
+      pronouns,
+      location,
+      currentlyReading,
+      favoritePublications,
+      links,
+      ...(hasAvatar ? { avatarUrl } : {}),
+    });
   } catch (err) {
     return {
       ok: false,

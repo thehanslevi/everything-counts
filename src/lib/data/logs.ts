@@ -42,25 +42,41 @@ export async function getSessionProfile(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return { profile: null, hasSession: false };
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, handle, name, bio, link, avatar_url")
-    .eq("id", user.id)
-    .maybeSingle();
+  const profile = await fullProfile("id", user.id);
+  return { profile: profile ?? null, hasSession: true };
+}
 
-  return { profile: data ? profileFromRow(data) : null, hasSession: true };
+const BASE_PROFILE_COLUMNS = "id, handle, name, bio, link, avatar_url";
+const FULL_PROFILE_COLUMNS = `${BASE_PROFILE_COLUMNS}, pronouns, location, currently_reading, favorite_publications, links`;
+
+// One profile with its optional details. If the details columns aren't there
+// yet (the migration hasn't run), fall back to the base columns rather than
+// failing, so a deploy that lands first can't sign everyone out.
+async function fullProfile(
+  column: "id" | "handle",
+  value: string,
+): Promise<Profile | undefined> {
+  const supabase = await createClient();
+  const full = await supabase
+    .from("profiles")
+    .select(FULL_PROFILE_COLUMNS)
+    .eq(column, value)
+    .maybeSingle<ProfileRow>();
+  if (full.error?.code === "42703") {
+    const { data } = await supabase
+      .from("profiles")
+      .select(BASE_PROFILE_COLUMNS)
+      .eq(column, value)
+      .maybeSingle<ProfileRow>();
+    return data ? profileFromRow(data) : undefined;
+  }
+  return full.data ? profileFromRow(full.data) : undefined;
 }
 
 export async function getProfileByHandle(
   handle: string,
 ): Promise<Profile | undefined> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, handle, name, bio, link, avatar_url")
-    .eq("handle", handle.toLowerCase())
-    .maybeSingle();
-  return data ? profileFromRow(data) : undefined;
+  return fullProfile("handle", handle.toLowerCase());
 }
 
 // Everyone on the network, newest first. Powers the People page.
@@ -77,11 +93,16 @@ export async function getProfiles(): Promise<Profile[]> {
 
 // Update the signed-in user's editable profile fields. Handle stays immutable
 // (it is the identity). Passing avatarUrl clears or sets the photo; omitting it
-// leaves the current avatar untouched.
+// leaves the current avatar untouched. The caller validates; this trims and
+// stores. `link` is kept as the first of `links` for anything that reads it.
 export async function updateProfile(fields: {
   name: string;
   bio: string | null;
-  link: string | null;
+  pronouns: string | null;
+  location: string | null;
+  currentlyReading: string | null;
+  favoritePublications: string[];
+  links: string[];
   avatarUrl?: string | null;
 }): Promise<void> {
   const supabase = await createClient();
@@ -90,15 +111,53 @@ export async function updateProfile(fields: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Sign in first.");
 
+  const text = (value: string | null) => value?.trim() || null;
+  const list = (values: string[]) => {
+    const kept = values.map((v) => v.trim()).filter(Boolean);
+    return kept.length ? kept : null;
+  };
+  const links = list(fields.links);
+
   const patch: Record<string, unknown> = {
     name: fields.name.trim(),
-    bio: fields.bio?.trim() || null,
-    link: fields.link?.trim() || null,
+    bio: text(fields.bio),
+    pronouns: text(fields.pronouns),
+    location: text(fields.location),
+    currently_reading: text(fields.currentlyReading),
+    favorite_publications: list(fields.favoritePublications),
+    links,
+    link: links?.[0] ?? null,
   };
   if (fields.avatarUrl !== undefined) patch.avatar_url = fields.avatarUrl;
 
   const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
   if (error) throw new Error(error.message);
+}
+
+// Which of these source slugs have a page: at least one shared log from that
+// source by someone the viewer hasn't blocked. Mirrors what getCatalog needs
+// to show /source/<slug> instead of a 404.
+export async function sourceSlugsWithPages(
+  slugs: string[],
+): Promise<Set<string>> {
+  const wanted = new Set(slugs.filter(Boolean));
+  if (wanted.size === 0) return new Set();
+  const supabase = await createClient();
+  const blocked = await viewerBlockedIds();
+  const { data } = await supabase
+    .from("logs")
+    .select("source, user_id")
+    .eq("shared", true)
+    .not("source", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  const found = new Set<string>();
+  for (const row of (data ?? []) as { source: string; user_id: string }[]) {
+    if (blocked.has(row.user_id)) continue;
+    const slug = slugify(row.source);
+    if (wanted.has(slug)) found.add(slug);
+  }
+  return found;
 }
 
 // --- Search ------------------------------------------------------------------

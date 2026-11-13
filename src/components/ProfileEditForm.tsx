@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateProfile } from "@/app/actions";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import { Avatar } from "@/components/Avatar";
-import type { Profile } from "@/lib/data/types";
+import { PROFILE_LIMITS, type Profile } from "@/lib/data/types";
 
 const inputClass =
   "w-full rounded-none border border-foreground bg-[#fbf7ee] px-3 py-2 font-structural text-sm text-foreground outline-none placeholder:text-foreground/35 focus:border-accent";
@@ -13,7 +13,8 @@ const labelClass =
   "flex items-center gap-2 font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground";
 
 // Edit your own profile: photo (or fall back to the generated seal), name,
-// bio, and one link. The photo uploads straight to Supabase Storage from the
+// bio, and the optional details: pronouns, location, currently reading,
+// favorite publications, and up to five links. The photo uploads straight to Supabase Storage from the
 // browser under your own uid folder; the resulting URL is saved on submit.
 export function ProfileEditForm({
   profile,
@@ -24,7 +25,18 @@ export function ProfileEditForm({
 }) {
   const [name, setName] = useState(profile.name);
   const [bio, setBio] = useState(profile.bio ?? "");
-  const [link, setLink] = useState(profile.link ?? "");
+  const [pronouns, setPronouns] = useState(profile.pronouns ?? "");
+  const [location, setLocation] = useState(profile.location ?? "");
+  const [currentlyReading, setCurrentlyReading] = useState(
+    profile.currentlyReading ?? "",
+  );
+  const [publications, setPublications] = useState(
+    profile.favoritePublications.join(", "),
+  );
+  // Always at least one box to type into.
+  const [links, setLinks] = useState<string[]>(
+    profile.links.length ? profile.links : [""],
+  );
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +90,11 @@ export function ProfileEditForm({
     const fd = new FormData();
     fd.set("name", name);
     fd.set("bio", bio);
-    fd.set("link", link);
+    fd.set("pronouns", pronouns);
+    fd.set("location", location);
+    fd.set("currentlyReading", currentlyReading);
+    fd.set("favoritePublications", publications);
+    for (const l of links) fd.append("links", l);
     fd.set("handle", profile.handle);
     fd.set("avatarUrl", avatarUrl ?? "");
     startTransition(async () => {
@@ -144,9 +160,7 @@ export function ProfileEditForm({
       <div className="flex flex-col gap-2">
         <label htmlFor="edit-bio" className={labelClass}>
           Bio
-          <span className="font-normal lowercase tracking-normal text-foreground/40">
-            optional
-          </span>
+          <Optional />
         </label>
         <textarea
           id="edit-bio"
@@ -159,22 +173,124 @@ export function ProfileEditForm({
         />
       </div>
 
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="edit-pronouns" className={labelClass}>
+            Pronouns
+            <Optional />
+          </label>
+          <input
+            id="edit-pronouns"
+            value={pronouns}
+            onChange={(e) => setPronouns(e.target.value)}
+            maxLength={PROFILE_LIMITS.pronouns}
+            placeholder="she/her"
+            className={inputClass}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="edit-location" className={labelClass}>
+            Location
+            <Optional />
+          </label>
+          <input
+            id="edit-location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            maxLength={PROFILE_LIMITS.location}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2">
-        <label htmlFor="edit-link" className={labelClass}>
-          Link
-          <span className="font-normal lowercase tracking-normal text-foreground/40">
-            optional
-          </span>
+        <label htmlFor="edit-reading" className={labelClass}>
+          Currently reading
+          <Optional />
         </label>
         <input
-          id="edit-link"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          maxLength={200}
-          placeholder="your-site.com"
-          className={inputClass}
+          id="edit-reading"
+          value={currentlyReading}
+          onChange={(e) => setCurrentlyReading(e.target.value)}
+          maxLength={PROFILE_LIMITS.currentlyReading}
+          className={`${inputClass} font-serif normal-case`}
         />
       </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="edit-publications" className={labelClass}>
+          Favorite publications
+          <Optional />
+        </label>
+        <input
+          id="edit-publications"
+          value={publications}
+          onChange={(e) => setPublications(e.target.value)}
+          maxLength={
+            PROFILE_LIMITS.publications * (PROFILE_LIMITS.publicationLength + 2)
+          }
+          placeholder="n+1, The Paris Review"
+          aria-describedby="edit-publications-hint"
+          className={inputClass}
+        />
+        <p
+          id="edit-publications-hint"
+          className="font-structural text-[0.65rem] uppercase tracking-[0.1em] text-foreground/45"
+        >
+          Separate with commas. Up to {PROFILE_LIMITS.publications}.
+        </p>
+      </div>
+
+      <fieldset className="flex min-w-0 flex-col gap-2">
+        <legend className="mb-2">
+          <span className={labelClass}>
+            Links
+            <Optional />
+          </span>
+        </legend>
+        {links.map((value, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              value={value}
+              onChange={(e) =>
+                setLinks((prev) =>
+                  prev.map((v, j) => (j === i ? e.target.value : v)),
+                )
+              }
+              type="text"
+              inputMode="url"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={PROFILE_LIMITS.linkLength}
+              placeholder="your-site.com"
+              aria-label={`Link ${i + 1}`}
+              className={inputClass}
+            />
+            {links.length > 1 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setLinks((prev) => prev.filter((_, j) => j !== i))
+                }
+                aria-label={`Remove link ${i + 1}`}
+                className="shrink-0 px-2 font-structural text-sm font-bold text-foreground/50 hover:text-accent"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+        {links.length < PROFILE_LIMITS.links && (
+          <button
+            type="button"
+            onClick={() => setLinks((prev) => [...prev, ""])}
+            className="self-start font-structural text-[0.65rem] font-bold uppercase tracking-[0.1em] text-foreground/60 underline decoration-foreground/30 underline-offset-2 hover:text-foreground"
+          >
+            + Add a link
+          </button>
+        )}
+      </fieldset>
 
       {error && (
         <p className="font-structural text-xs font-bold uppercase tracking-wide text-accent">
@@ -201,5 +317,13 @@ export function ProfileEditForm({
         )}
       </div>
     </form>
+  );
+}
+
+function Optional() {
+  return (
+    <span className="font-normal lowercase tracking-normal text-foreground/40">
+      optional
+    </span>
   );
 }

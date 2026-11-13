@@ -8,6 +8,7 @@ import {
   getSessionProfile,
   isBlocked,
   isFollowing,
+  sourceSlugsWithPages,
 } from "@/lib/data/logs";
 import { toggleWeeklyEmail } from "@/app/actions";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
@@ -18,13 +19,13 @@ import { RecordList } from "@/components/RecordList";
 import { SafetyMenu } from "@/components/SafetyMenu";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
-import { ProfileEditForm } from "@/components/ProfileEditForm";
+import { ProfileEditPanel } from "@/components/ProfileEditPanel";
 import { computeStats, formatEstTime } from "@/lib/data/stats";
 import { parsePeriod } from "@/lib/period";
 import { monthKeyIn } from "@/lib/dates";
 import { getTimeZone } from "@/lib/timezone";
-import { sourceHref } from "@/lib/slug";
-import type { Log } from "@/lib/data/types";
+import { slugify, sourceHref } from "@/lib/slug";
+import type { Log, Profile } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -48,21 +49,36 @@ export async function generateMetadata({
 // A person's public reading record, newest first.
 export default async function ProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ handle: string }>;
+  searchParams: Promise<{ edit?: string }>;
 }) {
-  const { handle } = await params;
+  const [{ handle }, { edit }] = await Promise.all([params, searchParams]);
   const person = await getProfileByHandle(handle);
   if (!person) notFound();
 
-  const [{ profile: viewer }, logs, counts, timeZone] = await Promise.all([
-    getSessionProfile(),
-    getLogsByUser(person.id),
-    getFollowCounts(person.id),
-    getTimeZone(),
-  ]);
+  const [{ profile: viewer }, logs, counts, timeZone, pubPages] =
+    await Promise.all([
+      getSessionProfile(),
+      getLogsByUser(person.id),
+      getFollowCounts(person.id),
+      getTimeZone(),
+      // Only publications that have a /source page get linked.
+      sourceSlugsWithPages(person.favoritePublications.map(slugify)),
+    ]);
 
   const isSelf = viewer?.id === person.id;
+  const editing = isSelf && edit === "1";
+  // Nothing added yet beyond a name: the edit button gets the accent.
+  const bare =
+    !person.avatarUrl &&
+    !person.bio &&
+    !person.pronouns &&
+    !person.location &&
+    !person.currentlyReading &&
+    person.favoritePublications.length === 0 &&
+    person.links.length === 0;
   const weeklyOn = isSelf ? await getWeeklyEmail() : false;
   const [following, blocked] =
     viewer && !isSelf
@@ -78,28 +94,36 @@ export default async function ProfilePage({
 
       <section className="mt-14 flex items-start justify-between gap-4 border-[3px] border-foreground bg-paper p-6 sm:p-7">
         <div className="flex min-w-0 items-start gap-4">
-          <Avatar profile={person} className="size-16 sm:size-20" />
+          <div className="flex shrink-0 flex-col items-center gap-2">
+            <Avatar profile={person} className="size-16 sm:size-20" />
+            {isSelf && !person.avatarUrl && !editing && (
+              <Link
+                href={`/u/${person.handle}?edit=1#edit`}
+                className="w-16 text-center font-structural text-[0.6rem] font-bold uppercase leading-tight tracking-[0.1em] text-accent hover:underline sm:w-20"
+              >
+                Add a photo
+              </Link>
+            )}
+          </div>
           <div className="min-w-0">
             <h2 className="font-structural text-2xl font-black uppercase tracking-[-0.01em] text-foreground sm:text-3xl">
               {person.name}
+              {person.pronouns && (
+                <span className="ml-2 align-middle font-structural text-xs font-bold normal-case tracking-[0.04em] text-foreground/50 sm:text-sm">
+                  {person.pronouns}
+                </span>
+              )}
             </h2>
             <p className="mt-1 font-structural text-sm text-foreground/50">
               @{person.handle}
+              {person.location && <> · {person.location}</>}
             </p>
             {person.bio && (
               <p className="mt-3 font-serif text-[14px] leading-[1.55] text-foreground/75">
                 {person.bio}
               </p>
             )}
-            {person.link && (
-              <ExternalLink
-                href={person.link}
-                rel="noopener noreferrer nofollow"
-                className="mt-2 inline-block break-all font-structural text-xs font-bold uppercase tracking-[0.1em] text-accent-3 hover:underline"
-              >
-                {person.link.replace(/^https?:\/\/(www\.)?/i, "")}
-              </ExternalLink>
-            )}
+            <ProfileDetails person={person} pubPages={pubPages} />
             <div className="mt-3 flex gap-4 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground">
               <Link
                 href={`/u/${person.handle}/followers`}
@@ -114,6 +138,18 @@ export default async function ProfilePage({
                 <span className="text-accent">{counts.following}</span> Following
               </Link>
             </div>
+            {isSelf && !editing && (
+              <Link
+                href={`/u/${person.handle}?edit=1#edit`}
+                className={`mt-4 inline-block ${
+                  bare
+                    ? "bg-accent text-white transition-opacity hover:opacity-85"
+                    : "border-2 border-foreground text-foreground transition-colors hover:border-accent hover:text-accent"
+                } px-4 py-1.5 font-structural text-xs font-bold uppercase tracking-[0.12em]`}
+              >
+                Edit profile
+              </Link>
+            )}
           </div>
         </div>
         {viewer && !isSelf && (
@@ -128,15 +164,18 @@ export default async function ProfilePage({
         )}
       </section>
 
-      {isSelf && (
-        <details className="mt-4 border-[3px] border-foreground bg-paper">
-          <summary className="cursor-pointer list-none px-5 py-3 font-structural text-xs font-bold uppercase tracking-[0.14em] text-foreground/70 transition-colors hover:text-foreground">
-            + Edit profile
-          </summary>
-          <div className="border-t border-foreground/25 p-5 sm:p-6">
-            <ProfileEditForm profile={person} />
+      {editing && (
+        <section
+          id="edit"
+          className="mt-4 scroll-mt-4 border-[3px] border-foreground bg-paper"
+        >
+          <h2 className="border-b-[3px] border-foreground bg-foreground px-5 py-3 font-structural text-sm font-bold uppercase tracking-[0.2em] text-background">
+            Edit profile
+          </h2>
+          <div className="p-5 sm:p-6">
+            <ProfileEditPanel profile={person} />
           </div>
-        </details>
+        </section>
       )}
 
       {isSelf && (
@@ -225,6 +264,92 @@ export default async function ProfilePage({
       )}
     </main>
   );
+}
+
+// The optional details under the bio: links, currently reading, favorite
+// publications. Each shows only when filled in, so a profile without them
+// looks as it always did.
+function ProfileDetails({
+  person,
+  pubPages,
+}: {
+  person: Profile;
+  pubPages: Set<string>;
+}) {
+  const labelClass =
+    "mr-1 whitespace-nowrap font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] text-foreground/50";
+  return (
+    <>
+      {person.links.length > 0 && (
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {person.links.map((url) => (
+            <ExternalLink
+              key={url}
+              href={url}
+              rel="me noopener nofollow"
+              className="break-all font-structural text-xs font-bold uppercase tracking-[0.1em] text-accent-3 hover:underline"
+            >
+              {linkLabel(url, person.links)}
+            </ExternalLink>
+          ))}
+        </p>
+      )}
+      {person.currentlyReading && (
+        <p className="mt-3 font-serif text-[14px] leading-[1.55] text-foreground/75">
+          <span className={labelClass}>Currently reading</span>{" "}
+          {person.currentlyReading}
+        </p>
+      )}
+      {person.favoritePublications.length > 0 && (
+        <p className="mt-2 font-serif text-[14px] leading-[1.55] text-foreground/75">
+          <span className={labelClass}>Favorite publications</span>{" "}
+          {person.favoritePublications.map((name, i) => {
+            const slug = slugify(name);
+            return (
+              <span key={`${name}-${i}`}>
+                {i > 0 && " · "}
+                {pubPages.has(slug) ? (
+                  <Link
+                    href={`/source/${slug}`}
+                    className="underline decoration-foreground/30 underline-offset-2 hover:decoration-accent"
+                  >
+                    {name}
+                  </Link>
+                ) : (
+                  name
+                )}
+              </span>
+            );
+          })}
+        </p>
+      )}
+    </>
+  );
+}
+
+// A link shown by its site: "example.com". When two links share a site, the
+// path tells them apart.
+function linkLabel(url: string, all: string[]): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./i, "");
+    const shared = all.some(
+      (other) =>
+        other !== url &&
+        (() => {
+          try {
+            return new URL(other).hostname.replace(/^www\./i, "") === host;
+          } catch {
+            return false;
+          }
+        })(),
+    );
+    if (!shared) return host;
+    const path = u.pathname.replace(/\/$/, "");
+    return path ? `${host}${path}` : host;
+  } catch {
+    return url.replace(/^https?:\/\/(www\.)?/i, "");
+  }
 }
 
 function plural(form: string, count: number): string {
