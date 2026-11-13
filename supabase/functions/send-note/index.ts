@@ -10,7 +10,7 @@
 // what only the service role has (everyone's address, everyone's email
 // setting) and the mail provider's key, which lives only in these secrets.
 //
-// Input: { userIds: string[] (at most 50), body: string (at most 240
+// Input: { userIds: string[] (at most 50), body: string (at most 5000
 // characters, sent as typed), from: { name, handle }, test?: boolean }.
 // Output: { ok, sent, skipped, failed, skippedBy, errors }. Never an address,
 // here or in the logs.

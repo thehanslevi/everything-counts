@@ -50,8 +50,8 @@ export function NewcomerNote({ count }: { count: number }) {
         logging anything
       </p>
       <textarea
-        rows={3}
-        maxLength={240}
+        rows={6}
+        maxLength={5000}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -101,7 +101,7 @@ export function NewcomerNote({ count }: { count: number }) {
           </>
         )}
         <span className="font-structural text-[0.65rem] font-bold uppercase tracking-[0.12em] text-foreground/45">
-          {text.length}/240
+          {text.length}
         </span>
       </div>
       {result && (

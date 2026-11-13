@@ -802,8 +802,20 @@ function readNewcomerNote(
 ): { note: string; push: string } | { error: string } {
   const note = message.replace(/\r\n?/g, "\n").trim();
   if (!note) return { error: "Write the note first." };
-  if (note.length > 240) return { error: "Keep it under 240 characters." };
-  return { note, push: note.replace(/\s+/g, " ") };
+  if (note.length > NOTE_MAX) return { error: `Keep it under ${NOTE_MAX} characters.` };
+  return { note, push: pushOpening(note.replace(/\s+/g, " ")) };
+}
+
+// The email carries the whole note (send-note's MAX_NOTE matches this). A
+// phone shows only the first couple of lines of a notification, so the push
+// carries the opening, cut at a word.
+const NOTE_MAX = 5000;
+const PUSH_MAX = 178;
+function pushOpening(text: string): string {
+  if (text.length <= PUSH_MAX) return text;
+  const cut = text.slice(0, PUSH_MAX - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > PUSH_MAX / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, "")}…`;
 }
 
 // Founder-only: one note to everyone who signed up and hasn't logged a piece

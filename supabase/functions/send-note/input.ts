@@ -5,8 +5,9 @@
 // batches (src/lib/note.ts). At the pace index.ts keeps (a lookup, the
 // send and a 0.6 s pause, about a second each), 50 takes about a minute.
 export const MAX_RECIPIENTS = 50;
-// The same limit as the box on the notifications page.
-export const MAX_NOTE = 240;
+// The same limit as the box on the notifications page (NOTE_MAX in
+// src/app/actions.ts). The push carries only the note's opening.
+export const MAX_NOTE = 5000;
 
 // The one person who sends these: the founder, the same handle as
 // FOUNDER_HANDLE in src/app/actions.ts and src/app/notifications/page.tsx.
