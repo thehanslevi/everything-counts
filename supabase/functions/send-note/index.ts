@@ -1,7 +1,9 @@
-// send-note: the email half of the founder's note to newcomers. Takes a
-// short note and a list of people, and emails each of them the note on its
+// send-note: the email half of the founder's notes, the welcome to
+// newcomers and the thank-you to people who have logged. Takes a note, a
+// list of people and an audience, and emails each of them the note on its
 // own, with one button to the first-log page. (The push half goes through
-// send-push; the app does both from one button, see sendNoteToNewcomers.)
+// send-push; the app does both from one button, see sendNoteToNewcomers
+// and sendNoteToLoggers.)
 //
 // Trusted server-to-server endpoint, like send-push and send-weekly: called
 // only by the Next.js app, which passes the shared secret in
@@ -11,16 +13,19 @@
 // setting) and the mail provider's key, which lives only in these secrets.
 //
 // Input: { userIds: string[] (at most 50), body: string (at most 5000
-// characters, sent as typed), from: { name, handle }, test?: boolean }.
-// Output: { ok, sent, skipped, failed, skippedBy, errors }. Never an address,
-// here or in the logs.
+// characters, sent as typed), from: { name, handle }, test?: boolean,
+// audience?: "newcomers" | "loggers" (newcomers when left out) }.
+// Output: { ok, sent, skipped, failed, skippedBy, errors, audience }. Never
+// an address, here or in the logs.
 //
 // Who gets it, in order:
 //  - not the sender (a real send);
-//  - only people with no log at all, private ones included (a real send).
-//    The app's list is read under the founder's own access, which can't see
-//    other people's private logs; the service role can, so this is where it
-//    is checked. The email says they haven't logged, and it has to be true;
+//  - for newcomers, only people with no log at all, private ones included;
+//    for loggers, only people with at least one (a real send). The app's
+//    list is read under the founder's own access, which can't see other
+//    people's private logs; the service role can, so this is where it is
+//    checked. The welcome says they haven't logged and the thank-you says
+//    they have, and each has to be true;
 //  - only people with email settings, since that row holds the token the
 //    "Stop email from Everything Counts" link needs. No way to stop it, no email;
 //  - not anyone whose `email_prefs.weekly` is false. That switch is the only
@@ -38,8 +43,13 @@
 // passes the sender's own user id as the one id; the function looks the
 // pinned sender up and refuses (400) unless that id is hers. A slip in the
 // caller (the whole list with test on) fails closed rather than reaching
-// anyone. A test ignores the sender's own off switch and the has-logged
-// rule (the founder has logged), and its subject starts "Test:".
+// anyone. A test ignores the sender's own off switch and both log rules
+// (the founder has logged), and its subject starts "Test:".
+//
+// "{name}" and "{pieces}" in the note fill in for each person (personalize
+// in input.ts): their first name and their own count of logs, private ones
+// included, counted here with the service role. On a test both are the
+// sender's own.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { parseNoteInput, personalize, SENDER_HANDLE } from "./input.ts";
@@ -65,6 +75,9 @@ const REPLY_TO = Deno.env.get("NOTE_REPLY_TO") ?? "";
 // The button goes to the address people signed up on: their sign-in (a
 // cookie) lives there, and the app and the auth redirects still use it.
 const FIRST_LOG_URL = "https://everything-counts.vercel.app/log?new=1";
+// People who have logged already get the ordinary log page, not the
+// first-log page with its sign-up steps.
+const LOG_URL = "https://everything-counts.vercel.app/log";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -129,7 +142,8 @@ async function sendOneOrThrow(message: Outgoing): Promise<SendResult> {
         authorization: `Bearer ${RESEND_API_KEY}`,
         "content-type": "application/json",
         // The same note to the same person goes once per day, even if the
-        // button is pressed again after a slow answer.
+        // button is pressed again after a slow answer. (Resend keeps a key
+        // for 24 hours.)
         ...(message.idempotencyKey ? { "Idempotency-Key": message.idempotencyKey } : {}),
       },
       body: JSON.stringify({
@@ -208,25 +222,26 @@ Deno.serve(async (req) => {
 
   const ids = input.userIds;
   const [profilesRes, prefsRes] = await Promise.all([
-    // Each person's profile, with at most one of their logs: any log at
-    // all, private ones included, means they have logged.
+    // Each person's profile, with a count of all their logs, private ones
+    // included (the service role reads past the shared-only rule). The
+    // count fills in "{pieces}" and decides who has logged.
     supabase
       .from("profiles")
-      .select("id, name, logs(user_id)")
-      .in("id", ids)
-      .limit(1, { referencedTable: "logs" }),
+      .select("id, name, logs(count)")
+      .in("id", ids),
     supabase.from("email_prefs").select("user_id, weekly, token").in("user_id", ids),
   ]);
   const lookupError = profilesRes.error ?? prefsRes.error;
   if (lookupError) return json({ ok: false, error: lookupError.message }, 500);
 
-  const nameOf = new Map(
-    ((profilesRes.data ?? []) as unknown as { id: string; name: string | null }[])
-      .map((p) => [p.id, p.name] as const),
-  );
-  const hasLogged = new Map(
-    ((profilesRes.data ?? []) as unknown as { id: string; logs: unknown[] | null }[])
-      .map((p) => [p.id, (p.logs ?? []).length > 0] as const),
+  const profiles = (profilesRes.data ?? []) as unknown as {
+    id: string;
+    name: string | null;
+    logs: { count: number }[] | null;
+  }[];
+  const nameOf = new Map(profiles.map((p) => [p.id, p.name] as const));
+  const piecesOf = new Map(
+    profiles.map((p) => [p.id, Number(p.logs?.[0]?.count ?? 0)] as const),
   );
   const prefOf = new Map(
     ((prefsRes.data ?? []) as { user_id: string; weekly: boolean; token: string | null }[])
@@ -234,8 +249,15 @@ Deno.serve(async (req) => {
   );
 
   // Every person gets the same note, so the key for "this note, this
-  // person" needs only the note's hash beside their id.
-  const noteKey = input.test ? "" : await shortHash(input.body);
+  // person" needs only the note's hash beside their id. The thank-you's
+  // keys also carry the audience, so the same text sent as the welcome and
+  // as the thank-you never shares a key. The welcome's keys keep the shape
+  // they had before there were two audiences.
+  const noteHash = input.test ? "" : await shortHash(input.body);
+  const keyFor = (id: string) =>
+    input.audience === "newcomers"
+      ? `send-note/${id}/${noteHash}`
+      : `send-note/${input.audience}/${id}/${noteHash}`;
 
   const skippedBy: Record<string, number> = {};
   const skip = (reason: string) => {
@@ -250,12 +272,19 @@ Deno.serve(async (req) => {
       skip("sender");
       continue;
     }
-    if (!hasLogged.has(id)) {
+    const pieces = piecesOf.get(id);
+    if (pieces === undefined) {
       skip("no-profile");
       continue;
     }
-    if (!input.test && hasLogged.get(id)) {
+    // The welcome goes only to people with no log; the thank-you only to
+    // people with at least one.
+    if (!input.test && input.audience === "newcomers" && pieces > 0) {
       skip("has-logged");
+      continue;
+    }
+    if (!input.test && input.audience === "loggers" && pieces === 0) {
+      skip("no-log");
       continue;
     }
     const pref = prefOf.get(id);
@@ -285,14 +314,15 @@ Deno.serve(async (req) => {
     }
 
     const { subject, html, text } = renderNote({
-      note: personalize(input.body, nameOf.get(id)),
+      note: personalize(input.body, nameOf.get(id), pieces),
       from: input.from,
       site: SITE,
       mastheadUrl: `${SITE}/email/masthead.png`,
-      firstLogUrl: FIRST_LOG_URL,
+      firstLogUrl: input.audience === "loggers" ? LOG_URL : FIRST_LOG_URL,
       unsubscribeUrl: `${SITE}/unsubscribe?t=${pref.token}`,
       postalAddress: MAIL_ADDRESS,
       test: input.test,
+      audience: input.audience,
     });
 
     const result = await sendOne({
@@ -302,10 +332,15 @@ Deno.serve(async (req) => {
       text,
       token: pref.token,
       // A test can be sent again and again; a real one once a day.
-      idempotencyKey: input.test ? undefined : `send-note/${id}/${noteKey}`,
+      idempotencyKey: input.test ? undefined : keyFor(id),
     });
     if (result.ok) {
       sent++;
+    } else if (result.status === 409 && result.name === "invalid_idempotent_request") {
+      // Resend already took this note for this person in the last 24
+      // hours, and the email has changed since ("{pieces}" moved because
+      // they logged again). That is a send already made, not a failure.
+      skip("already-sent");
     } else {
       failed++;
       if (errors.length < 5) {
@@ -317,5 +352,15 @@ Deno.serve(async (req) => {
   }
 
   const skipped = Object.values(skippedBy).reduce((sum, n) => sum + n, 0);
-  return json({ ok: failed === 0, sent, skipped, failed, skippedBy, errors });
+  // The audience goes back to the app, so an app newer than this function
+  // can tell when the function ignored it (src/lib/note.ts).
+  return json({
+    ok: failed === 0,
+    sent,
+    skipped,
+    failed,
+    skippedBy,
+    errors,
+    audience: input.audience,
+  });
 });

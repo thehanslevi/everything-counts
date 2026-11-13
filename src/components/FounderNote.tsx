@@ -1,16 +1,36 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { sendNoteToNewcomers, sendTestNoteEmail } from "@/app/actions";
+import { sendNoteToLoggers, sendNoteToNewcomers, sendTestNoteEmail } from "@/app/actions";
 
-// Founder-only: write one note to the people who signed up and haven't
-// logged anything. It goes to their phones (those with notifications on)
-// and their inboxes. "Email me a test" sends the email to your own inbox
-// first. The real send takes two taps, so it can't go by accident.
-//
-// The button labels, placeholder and pending text here are drafts (mine,
-// not yet approved), like the result messages in src/lib/note.ts.
-export function NewcomerNote({ count }: { count: number }) {
+type Audience = "newcomers" | "loggers";
+
+// COPY: DRAFTS, NOT YET APPROVED (mine, like the button labels and pending
+// text below and the result messages in src/lib/note.ts). The heading and
+// the placeholder for each audience. The loggers heading and placeholder
+// are new drafts; the newcomers ones are as they were.
+const WORDS: Record<Audience, { heading: (count: number) => string; placeholder: string }> = {
+  newcomers: {
+    heading: (count) =>
+      `${count} ${count === 1 ? "person has" : "people have"} signed up without logging anything`,
+    placeholder:
+      "A note to their phones and inboxes. Opening it takes them to the first-log page.",
+  },
+  loggers: {
+    heading: (count) =>
+      `${count} ${count === 1 ? "person has" : "people have"} logged something`,
+    placeholder:
+      "A note to their phones and inboxes. {name} and {pieces} fill in for each person.",
+  },
+};
+
+// Founder-only: write one note to an audience. "newcomers" are the people
+// who signed up and haven't logged anything (the welcome); "loggers" are
+// the people who have logged at least one piece (the thank-you). It goes
+// to their phones (those with notifications on) and their inboxes. "Email
+// me a test" sends the email to your own inbox first. The real send takes
+// two taps, so it can't go by accident.
+export function FounderNote({ audience, count }: { audience: Audience; count: number }) {
   const [text, setText] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -23,12 +43,14 @@ export function NewcomerNote({ count }: { count: number }) {
   function send() {
     setResult(null);
     startTransition(async () => {
-      const r = await sendNoteToNewcomers(text);
+      const r =
+        audience === "loggers" ? await sendNoteToLoggers(text) : await sendNoteToNewcomers(text);
       setConfirming(false);
-      // Partial: the push went but some or all of the email didn't. The
-      // note stays in the box and the outcome shows as a warning. (Sending
-      // again pushes to the phones again; "Email me a test" first catches
-      // an email function that isn't ready.)
+      // Partial: the push or some of the email didn't go. The note stays
+      // in the box and the outcome shows as a warning. Sending again pushes
+      // to every phone again. The email doesn't go twice: the same note to
+      // the same person is held back for 24 hours. "Email me a test" first
+      // catches an email function that isn't ready.
       const done = r.ok && !r.partial;
       setResult({ ok: done, text: r.ok ? (r.message ?? "Sent.") : (r.error ?? "Failed.") });
       if (done) setText("");
@@ -38,7 +60,7 @@ export function NewcomerNote({ count }: { count: number }) {
   function test() {
     setResult(null);
     startTest(async () => {
-      const r = await sendTestNoteEmail(text);
+      const r = await sendTestNoteEmail(text, audience);
       setResult({ ok: r.ok, text: r.ok ? (r.message ?? "Sent.") : (r.error ?? "Failed.") });
     });
   }
@@ -46,8 +68,7 @@ export function NewcomerNote({ count }: { count: number }) {
   return (
     <div className="mt-6 border-2 border-foreground bg-paper p-4">
       <p className="font-structural text-xs font-bold uppercase tracking-[0.12em] text-foreground">
-        {count} {count === 1 ? "person has" : "people have"} signed up without
-        logging anything
+        {WORDS[audience].heading(count)}
       </p>
       <textarea
         rows={6}
@@ -57,7 +78,7 @@ export function NewcomerNote({ count }: { count: number }) {
           setText(e.target.value);
           setConfirming(false);
         }}
-        placeholder="A note to their phones and inboxes. Opening it takes them to the first-log page."
+        placeholder={WORDS[audience].placeholder}
         className="mt-3 w-full resize-none rounded-none border border-foreground bg-[#fbf7ee] px-3 py-2 font-serif text-[15px] text-foreground outline-none placeholder:text-foreground/35 focus:border-accent"
       />
       <div className="mt-2 flex flex-wrap items-center gap-3">

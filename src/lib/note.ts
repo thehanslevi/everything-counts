@@ -1,7 +1,8 @@
 import "server-only";
 
 // The one place the app talks to the send-note edge function, the email
-// half of the founder's note to newcomers. Same shape as weekly.ts and
+// half of the founder's notes (the welcome to newcomers and the thank-you
+// to people who have logged). Same shape as weekly.ts and
 // catalog.ts: a shared secret, and nothing here ever throws into the
 // caller. The mail provider's key never comes near the app; only the
 // function holds it.
@@ -14,11 +15,16 @@ const PUSH_SECRET = process.env.PUSH_SECRET;
 // supabase/functions/send-note/input.ts); longer lists go in batches.
 const BATCH = 50;
 
+// Who a note is for; the same names as Audience in
+// supabase/functions/send-note/input.ts.
+export type NoteAudience = "newcomers" | "loggers";
+
 export interface NoteEmail {
   userIds: string[];
   body: string; // the note as typed
   from: { name: string; handle: string };
   test?: boolean; // to the sender's own inbox only; userIds is [their id]
+  audience: NoteAudience; // picks the subject and who a real send may reach
 }
 
 export interface NoteResult {
@@ -41,6 +47,9 @@ interface FunctionAnswer {
   skippedBy?: Record<string, number>;
   errors?: { status: number; reason: string; detail: string }[];
   error?: string;
+  // The audience the function used. A function deployed before there were
+  // two audiences leaves it out and treats every note as the welcome.
+  audience?: NoteAudience;
 }
 
 const empty = (): NoteResult => ({
@@ -86,6 +95,13 @@ export async function sendNoteEmail(note: NoteEmail): Promise<NoteResult> {
   }
   for (let i = 0; i < note.userIds.length; i += BATCH) {
     const answer = await callOnce({ ...note, userIds: note.userIds.slice(i, i + BATCH) });
+    // A function older than this app ignores the audience and would have
+    // skipped every logger as "has-logged". That is a stale deploy, not
+    // people logging, so it counts as the email not going and the note
+    // stays in the box.
+    if (!answer.error && note.audience !== "newcomers" && answer.audience !== note.audience) {
+      answer.error = "send-note-needs-redeploy";
+    }
     total.sent += answer.sent ?? 0;
     total.skipped += answer.skipped ?? 0;
     total.failed += answer.failed ?? 0;
@@ -116,6 +132,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 const SKIP_WORDS: Record<string, (n: number) => string> = {
   "email-off": (n) => `${n} turned email off`,
   "has-logged": (n) => `${n} logged in the meantime`,
+  "no-log": (n) => `${n} with no logs now`,
   "no-address": (n) => `${n} with no address`,
   "lookup-failed": (n) => `${n} whose address couldn't be read`,
   unconfirmed: (n) => `${plural(n, "address", "addresses")} not confirmed`,
@@ -132,6 +149,7 @@ const skipText = (reason: string, n: number) =>
 const REFUSALS = new Set([
   "bad-body",
   "bad-test",
+  "bad-audience",
   "no-recipients",
   "bad-recipient",
   "too-many-recipients",
@@ -176,12 +194,20 @@ function firstRefusal(result: NoteResult): string {
 }
 
 // After the real send: phones, inboxes, and anything that didn't go.
-export function noteSentMessage(phones: number, email: NoteResult): string {
-  const parts = [
-    email.sent > 0 || !email.error
-      ? `Sent to ${plural(phones, "phone", "phones")} and ${plural(email.sent, "inbox", "inboxes")}.`
-      : `Sent to ${plural(phones, "phone", "phones")}.`,
-  ];
+// `phones` is null when the push didn't go at all; the caller says why, and
+// this leaves the phones out rather than saying "0 phones".
+export function noteSentMessage(phones: number | null, email: NoteResult): string {
+  const inboxes = email.sent > 0 || !email.error;
+  const parts: string[] = [];
+  if (phones === null) {
+    if (inboxes) parts.push(`Sent to ${plural(email.sent, "inbox", "inboxes")}.`);
+  } else {
+    parts.push(
+      inboxes
+        ? `Sent to ${plural(phones, "phone", "phones")} and ${plural(email.sent, "inbox", "inboxes")}.`
+        : `Sent to ${plural(phones, "phone", "phones")}.`,
+    );
+  }
   const skips = Object.entries(email.skippedBy).map(([reason, n]) => skipText(reason, n));
   if (skips.length) parts.push(`Not emailed: ${skips.join(", ")}.`);
   if (email.failed > 0) {

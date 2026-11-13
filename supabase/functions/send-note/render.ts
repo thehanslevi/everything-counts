@@ -6,14 +6,21 @@
 // the sender's note in the serif face and one button to the first-log page.
 // Edge functions bundle on their own, so the few helpers it shares with the
 // weekly email are copied here rather than imported.
+import type { Audience } from "./input.ts";
 
 // ---------------------------------------------------------------------------
-// COPY: approved by Hannah on 2026-11-12 (the subject is her own words; the
-// button, why line and stop link are her picks from drafts). Every word
-// this email adds around the note lives here and nowhere else. The note
-// itself is the sender's and goes out exactly as typed.
+// COPY: approved by Hannah on 2026-11-12 (the welcome's subject is her own
+// words; the thank-you's subject, the button, why line and stop link are
+// her picks from drafts). Every word this email adds around the note lives
+// here and nowhere else. The note itself is the sender's and goes out
+// exactly as typed.
 export const COPY = {
-  subject: "A warm welcome from Everything Counts",
+  // One subject for each audience (see Audience in input.ts). Everything
+  // else is the same for both.
+  subject: {
+    newcomers: "A warm welcome from Everything Counts",
+    loggers: "A thank-you from Everything Counts",
+  },
   // Put in front of the subject on a test send, as the weekly test does.
   testPrefix: "Test: ",
   // The heading of the page it opens (/log?new=1).
@@ -68,6 +75,7 @@ export function renderNote({
   unsubscribeUrl,
   postalAddress,
   test = false,
+  audience = "newcomers",
 }: {
   note: string; // as typed (see cleanNote in input.ts)
   from: { name: string; handle: string };
@@ -77,8 +85,9 @@ export function renderNote({
   unsubscribeUrl: string; // the weekly email's own link, same token
   postalAddress: string; // "" to leave it out
   test?: boolean;
+  audience?: Audience; // picks the subject; "newcomers" when left out
 }): { subject: string; html: string; text: string } {
-  const subject = `${test ? COPY.testPrefix : ""}${COPY.subject}`;
+  const subject = `${test ? COPY.testPrefix : ""}${COPY.subject[audience]}`;
   const label = senderLine(from);
   // What inbox lists show after the subject: the note, on one line.
   const preheader = note.replace(/\s+/g, " ").trim();

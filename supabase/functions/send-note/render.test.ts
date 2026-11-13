@@ -6,7 +6,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COPY, renderNote } from "./render.ts";
-import { MAX_NOTE, MAX_RECIPIENTS, parseNoteInput, personalize, SENDER_HANDLE } from "./input.ts";
+import {
+  MAX_NOTE,
+  MAX_RECIPIENTS,
+  parseNoteInput,
+  personalize,
+  piecesText,
+  SENDER_HANDLE,
+} from "./input.ts";
 
 const LONG_WORD = "Supercalifragilistic".repeat(6); // 120 characters, no break
 const NOTE =
@@ -95,6 +102,27 @@ test("subject is fixed; a test says so; the sender line falls back to @handle", 
   assert.equal(renderNote({ ...base, test: true }).subject, "Test: A warm welcome from Everything Counts");
 });
 
+test("each audience has its own subject; the rest of the email is the same", () => {
+  assert.equal(
+    renderNote({ ...base, audience: "newcomers" }).subject,
+    "A warm welcome from Everything Counts",
+  );
+  const thanks = renderNote({ ...base, audience: "loggers" });
+  assert.equal(thanks.subject, "A thank-you from Everything Counts");
+  assert.ok(thanks.html.includes("<title>A thank-you from Everything Counts</title>"));
+  assert.equal(
+    renderNote({ ...base, audience: "loggers", test: true }).subject,
+    "Test: A thank-you from Everything Counts",
+  );
+  // Button, why line and stop link: the same words, the same places.
+  const welcome = renderNote(base);
+  assert.equal(thanks.text, welcome.text);
+  assert.equal(
+    thanks.html.replace(/<title>[^<]*<\/title>/, ""),
+    welcome.html.replace(/<title>[^<]*<\/title>/, ""),
+  );
+});
+
 test("a postal address shows only when there is one", () => {
   assert.ok(!renderNote(base).html.includes("<br>1 Main"));
   const withAddress = renderNote({ ...base, postalAddress: "1 Main St & Co" });
@@ -150,11 +178,59 @@ test("input: refuses what it can't send safely", () => {
   assert.ok(!("error" in asTest) && asTest.test === true);
 });
 
+test("input: the audience is newcomers unless it says loggers", () => {
+  const plain = parseNoteInput(good);
+  assert.ok(!("error" in plain) && plain.audience === "newcomers");
+  const welcome = parseNoteInput({ ...good, audience: "newcomers" });
+  assert.ok(!("error" in welcome) && welcome.audience === "newcomers");
+  const thanks = parseNoteInput({ ...good, audience: "loggers" });
+  assert.ok(!("error" in thanks) && thanks.audience === "loggers");
+  for (const audience of ["everyone", "Loggers", "", null, 1, true]) {
+    const parsed = parseNoteInput({ ...good, audience });
+    assert.ok("error" in parsed && parsed.error === "bad-audience", String(audience));
+  }
+});
+
 test("{name} becomes the first name, or goes with its space when there is none", () => {
   const note = "Hi {name}! A note.\n\nHannah";
-  assert.equal(personalize(note, "Jane Q. Doe"), "Hi Jane! A note.\n\nHannah");
-  assert.equal(personalize(note, "  "), "Hi! A note.\n\nHannah");
-  assert.equal(personalize(note, null), "Hi! A note.\n\nHannah");
-  assert.equal(personalize("No placeholder here.", "Jane"), "No placeholder here.");
-  assert.equal(personalize("{name}, {name}!", "Ana"), "Ana, Ana!");
+  assert.equal(personalize(note, "Jane Q. Doe", 0), "Hi Jane! A note.\n\nHannah");
+  assert.equal(personalize(note, "  ", 0), "Hi! A note.\n\nHannah");
+  assert.equal(personalize(note, null, 0), "Hi! A note.\n\nHannah");
+  assert.equal(personalize("No placeholder here.", "Jane", 3), "No placeholder here.");
+  assert.equal(personalize("{name}, {name}!", "Ana", 0), "Ana, Ana!");
+  // A name is text, never a replacement pattern.
+  assert.equal(personalize("Hi {name}.", "$&$1", 0), "Hi $&$1.");
+});
+
+test("{pieces} becomes their own count: 1 piece, 0 pieces, 22 pieces", () => {
+  assert.equal(piecesText(0), "0 pieces");
+  assert.equal(piecesText(1), "1 piece");
+  assert.equal(piecesText(2), "2 pieces");
+  assert.equal(piecesText(22), "22 pieces");
+  assert.equal(personalize("You've logged {pieces}.", "Ana", 22), "You've logged 22 pieces.");
+  assert.equal(personalize("You've logged {pieces}.", "Ana", 1), "You've logged 1 piece.");
+  assert.equal(personalize("You've logged {pieces}.", null, 0), "You've logged 0 pieces.");
+  assert.equal(personalize("{pieces}, {pieces}", null, 2), "2 pieces, 2 pieces");
+});
+
+test("{name} and {pieces} fill in together", () => {
+  const note = "Thank you {name}, for {pieces} so far.\n\nHannah";
+  assert.equal(
+    personalize(note, "Jane Q. Doe", 22),
+    "Thank you Jane, for 22 pieces so far.\n\nHannah",
+  );
+  assert.equal(personalize(note, "Jo", 1), "Thank you Jo, for 1 piece so far.\n\nHannah");
+  // No name: "{name}" goes with its space; the count stays.
+  assert.equal(personalize(note, "", 0), "Thank you, for 0 pieces so far.\n\nHannah");
+  // A name that reads like the other placeholder stays as typed.
+  assert.equal(personalize("{name}: {pieces}", "{pieces}", 3), "{pieces}: 3 pieces");
+});
+
+test('a "pieces" typed after {pieces} is not doubled', () => {
+  assert.equal(personalize("You've logged {pieces} pieces.", "Ana", 22), "You've logged 22 pieces.");
+  assert.equal(personalize("You've logged {pieces} pieces.", "Ana", 1), "You've logged 1 piece.");
+  assert.equal(personalize("You've logged {pieces} piece.", "Ana", 0), "You've logged 0 pieces.");
+  assert.equal(personalize("{pieces} pieces of reading", null, 2), "2 pieces of reading");
+  // Only the word itself goes, not a longer one.
+  assert.equal(personalize("{pieces} piecework", null, 2), "2 pieces piecework");
 });

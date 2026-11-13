@@ -23,6 +23,7 @@ import {
   updateProfile as saveProfile,
   workExists,
   getNewcomerIds,
+  getLoggerIds,
   getSessionProfile,
 } from "@/lib/data/logs";
 import { FORMS, type Form, type Log } from "@/lib/data/types";
@@ -32,7 +33,13 @@ import { shareSigValid, shareUrl } from "@/lib/share";
 import { afterLogLine, localMonthStart } from "@/lib/afterlog";
 import { sendWeekly } from "@/lib/weekly";
 import { refreshCatalog } from "@/lib/catalog";
-import { noteEmailFell, noteSentMessage, noteTestMessage, sendNoteEmail } from "@/lib/note";
+import {
+  noteEmailFell,
+  noteSentMessage,
+  noteTestMessage,
+  sendNoteEmail,
+  type NoteAudience,
+} from "@/lib/note";
 import { isTimeZone } from "@/lib/dates";
 
 const SITE_URL = "https://everything-counts.vercel.app";
@@ -69,8 +76,8 @@ export interface ActionResult {
   error?: string;
   log?: Log;
   message?: string; // a plain outcome to show, when there is one
-  // Done, but not all of it: show the message as a warning (the note to
-  // newcomers, when the push went and some or all of the email didn't).
+  // Done, but not all of it: show the message as a warning (the founder's
+  // notes, when the push went and some or all of the email didn't).
   partial?: boolean;
   // After a save: the line for under the card, and the link to share it by.
   after?: { line: string | null; shareUrl: string | null };
@@ -794,31 +801,77 @@ export async function sendTestWeekly(): Promise<ActionResult> {
   };
 }
 
-// The note to newcomers, checked once for both buttons. `note` is the text
-// as typed (line breaks kept, ends trimmed) for the email; `push` is the
-// same on one line, for a lock screen.
-function readNewcomerNote(
-  message: string,
-): { note: string; push: string } | { error: string } {
+// A founder's note (the welcome to newcomers or the thank-you to people who
+// have logged), checked once for every button. `note` is the text as typed
+// (line breaks kept, ends trimmed) for the email; `push` is the same on one
+// line, for a lock screen.
+function readNote(message: string): { note: string; push: string } | { error: string } {
   const note = message.replace(/\r\n?/g, "\n").trim();
   if (!note) return { error: "Write the note first." };
   if (note.length > NOTE_MAX) return { error: `Keep it under ${NOTE_MAX} characters.` };
   return { note, push: note.replace(/\s+/g, " ") };
 }
 
-// "{name}" becomes the recipient's first name, or goes (with the space
-// before it) when they have none: "Hi {name}!" reads "Hi!". The same rule
-// is personalize() in supabase/functions/send-note/input.ts for the email.
-function personalize(note: string, profileName: string | null | undefined): string {
-  const first = (profileName ?? "").trim().split(/\s+/)[0] ?? "";
-  return first ? note.replace(/\{name\}/g, first) : note.replace(/[ \t]*\{name\}/g, "");
+// A count of logs in words: "1 piece", "22 pieces", "0 pieces".
+function piecesText(count: number): string {
+  return `${count} ${count === 1 ? "piece" : "pieces"}`;
 }
 
-async function profileNames(ids: string[]): Promise<Map<string, string | null>> {
-  if (ids.length === 0) return new Map();
+// "{name}" becomes the recipient's first name, or goes (with the space
+// before it) when they have none: "Hi {name}!" reads "Hi!". "{pieces}"
+// becomes their count of logs, as "22 pieces" or "1 piece". The same rule
+// is personalize() in supabase/functions/send-note/input.ts for the email,
+// and the two must agree.
+function personalize(
+  note: string,
+  profileName: string | null | undefined,
+  pieces: number,
+): string {
+  // The count goes in first, so a name that happens to read "{pieces}"
+  // stays as typed. Both go in through a function, so a "$&" in a name is
+  // text and not a replacement pattern.
+  // "{pieces}" already says "pieces", so a "pieces" or "piece" typed
+  // right after it goes with it: "{pieces} pieces" reads "22 pieces", not
+  // "22 pieces pieces".
+  const counted = note.replace(/\{pieces\}(?:[ \t]+pieces?\b)?/g, () => piecesText(pieces));
+  const first = (profileName ?? "").trim().split(/\s+/)[0] ?? "";
+  return first
+    ? counted.replace(/\{name\}/g, () => first)
+    : counted.replace(/[ \t]*\{name\}/g, "");
+}
+
+// Each person's name and count of logs, for the push. Read under the
+// founder's own access, which counts other people's shared logs and not
+// their private ones, so the push's "{pieces}" can undercount someone who
+// keeps logs private (nobody does today). The email's count is exact:
+// send-note counts with the service role, which the app doesn't hold. Null
+// when the read fails, so a failed read can't push "0 pieces" to anyone.
+async function profileFacts(
+  ids: string[],
+): Promise<Map<string, { name: string | null; pieces: number }> | null> {
+  const facts = new Map<string, { name: string | null; pieces: number }>();
+  if (ids.length === 0) return facts;
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("id, name").in("id", ids);
-  return new Map((data ?? []).map((p) => [p.id as string, (p.name as string | null) ?? null]));
+  // The ids ride in the request's address, so they go 200 at a time.
+  const PAGE = 200;
+  for (let i = 0; i < ids.length; i += PAGE) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name, logs(count)")
+      .in("id", ids.slice(i, i + PAGE));
+    if (error) {
+      console.error("profileFacts failed", error.message);
+      return null;
+    }
+    for (const p of (data ?? []) as unknown as {
+      id: string;
+      name: string | null;
+      logs: { count: number }[] | null;
+    }[]) {
+      facts.set(p.id, { name: p.name ?? null, pieces: Number(p.logs?.[0]?.count ?? 0) });
+    }
+  }
+  return facts;
 }
 
 // The email carries the whole note (send-note's MAX_NOTE matches this). A
@@ -833,35 +886,52 @@ function pushOpening(text: string): string {
   return `${(space > PUSH_MAX / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, "")}…`;
 }
 
-// Founder-only: one note to everyone who signed up and hasn't logged a piece
-// yet. It goes two ways at once: a push to the phones that have
-// notifications on, and an email to every inbox (send-note, which leaves out
-// anyone who turned email off). Both open the first-log page.
-export async function sendNoteToNewcomers(message: string): Promise<ActionResult> {
+// Who each audience is, read fresh at send time. Null when the read fails.
+async function audienceIds(audience: NoteAudience): Promise<string[] | null> {
+  return audience === "loggers" ? getLoggerIds() : getNewcomerIds();
+}
+
+// One founder's note to one audience. It goes two ways at once: a push to
+// the phones that have notifications on, and an email to every inbox
+// (send-note, which leaves out anyone who turned email off and checks each
+// person against the audience's rule). Both open the first-log page.
+async function sendFounderNote(
+  audience: NoteAudience,
+  message: string,
+): Promise<ActionResult> {
   const { profile } = await getSessionProfile();
   if (!profile) return { ok: false, error: "Sign in first." };
   if (profile.handle !== FOUNDER_HANDLE) return { ok: false, error: "Not available." };
-  const read = readNewcomerNote(message);
+  const read = readNote(message);
   if ("error" in read) return { ok: false, error: read.error };
   if (!process.env.PUSH_SECRET) {
     return { ok: false, error: "PUSH_SECRET is not set on this deployment." };
   }
 
-  const newcomers = await getNewcomerIds();
-  if (!newcomers) {
+  const everyone = await audienceIds(audience);
+  if (!everyone) {
     return { ok: false, error: "Couldn't check who has logged. Nothing was sent." };
   }
-  const ids = newcomers.filter((id) => id !== profile.id);
+  const ids = everyone.filter((id) => id !== profile.id);
 
   const pushAll = async () => {
-    const names = await profileNames(ids);
+    // The thank-you needs each person's name and count: without them there
+    // is nothing right to fill in, so no push goes (null) and the email
+    // still does. The welcome pushes as it always has: a failed read drops
+    // "{name}", and "{pieces}" is "0 pieces", which is what a newcomer has.
+    const facts = await profileFacts(ids);
+    if (!facts && audience === "loggers") return null;
     let phones = 0;
     for (const id of ids) {
+      const fact =
+        facts?.get(id) ?? (audience === "newcomers" ? { name: null, pieces: 0 } : undefined);
+      if (!fact) continue;
       const result = await notify({
         recipientUserId: id,
         title: profile.name || `@${profile.handle}`,
-        body: pushOpening(personalize(read.push, names.get(id))),
-        url: "/log?new=1",
+        body: pushOpening(personalize(read.push, fact.name, fact.pieces)),
+        // People who have logged get the ordinary log page, not the first-log steps.
+        url: audience === "loggers" ? "/log" : "/log?new=1",
       });
       phones += result?.sent ?? 0;
     }
@@ -876,22 +946,49 @@ export async function sendNoteToNewcomers(message: string): Promise<ActionResult
       userIds: ids,
       body: read.note,
       from: { name: profile.name, handle: profile.handle },
+      audience,
     }),
   ]);
+  // COPY: DRAFT, not yet approved (the line for a push that didn't go).
+  const pushFell = phones === null;
+  const outcome = noteSentMessage(phones, email);
   return {
     ok: true,
-    message: noteSentMessage(phones, email),
-    partial: noteEmailFell(email),
+    message: pushFell
+      ? `${outcome} Push didn't go: names and counts couldn't be read.`
+      : outcome,
+    partial: pushFell || noteEmailFell(email),
   };
 }
 
-// Founder-only: the note's email, to your own inbox and nobody else's, so
-// you see what newcomers will before they do. Nothing is pushed.
-export async function sendTestNoteEmail(message: string): Promise<ActionResult> {
+// Founder-only: one note to everyone who signed up and hasn't logged a piece
+// yet.
+export async function sendNoteToNewcomers(message: string): Promise<ActionResult> {
+  return sendFounderNote("newcomers", message);
+}
+
+// Founder-only: one note to everyone who has logged at least one piece, to
+// thank them.
+export async function sendNoteToLoggers(message: string): Promise<ActionResult> {
+  return sendFounderNote("loggers", message);
+}
+
+// Founder-only: a note's email, to your own inbox and nobody else's, so you
+// see what its audience will before they do: that audience's subject, and
+// "{name}" and "{pieces}" filled in with your own. Nothing is pushed.
+export async function sendTestNoteEmail(
+  message: string,
+  audience: NoteAudience = "newcomers",
+): Promise<ActionResult> {
   const { profile } = await getSessionProfile();
   if (!profile) return { ok: false, error: "Sign in first." };
   if (profile.handle !== FOUNDER_HANDLE) return { ok: false, error: "Not available." };
-  const read = readNewcomerNote(message);
+  // A server action takes whatever the browser sends, so the audience is
+  // checked here and not only by its type.
+  if (audience !== "newcomers" && audience !== "loggers") {
+    return { ok: false, error: "Not available." };
+  }
+  const read = readNote(message);
   if ("error" in read) return { ok: false, error: read.error };
   if (!process.env.PUSH_SECRET) {
     return { ok: false, error: "PUSH_SECRET is not set on this deployment." };
@@ -902,6 +999,7 @@ export async function sendTestNoteEmail(message: string): Promise<ActionResult> 
     body: read.note,
     from: { name: profile.name, handle: profile.handle },
     test: true,
+    audience,
   });
   const outcome = noteTestMessage(email);
   return outcome.ok

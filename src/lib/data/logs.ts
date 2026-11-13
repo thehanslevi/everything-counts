@@ -1420,3 +1420,30 @@ export async function getNewcomerIds(): Promise<string[] | null> {
     if (rows.length < PAGE) return ids;
   }
 }
+
+// Everyone who has logged at least one piece (founder tool: the thank-you
+// note on the notifications page). The same one query as getNewcomerIds
+// turned around: profiles with at least one log row, a page at a time, with
+// one log each, since one is enough to count. It reads under the founder's
+// own access, which sees other people's shared logs and not their private
+// ones, so someone whose every log is private isn't on this list (nobody is
+// today). send-note checks each person again with the service role. Null
+// when the read fails: that must never pass for "nobody has logged".
+export async function getLoggerIds(): Promise<string[] | null> {
+  const supabase = await createClient();
+  const PAGE = 1000;
+  const ids: string[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, logs(user_id)")
+      .not("logs", "is", null)
+      .limit(1, { referencedTable: "logs" })
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) return null;
+    const rows = (data ?? []) as { id: string }[];
+    ids.push(...rows.map((row) => row.id));
+    if (rows.length < PAGE) return ids;
+  }
+}

@@ -14,6 +14,12 @@ export const MAX_NOTE = 5000;
 // Any other sender is refused, so a test can only ever reach her inbox.
 export const SENDER_HANDLE = "hrlevinson";
 
+// Who a note is for. "newcomers": people with no log yet (the welcome).
+// "loggers": people with at least one log (the thank-you). A real send
+// checks each person against the rule for its audience (see index.ts).
+export const AUDIENCES = ["newcomers", "loggers"] as const;
+export type Audience = (typeof AUDIENCES)[number];
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HANDLE = /^[a-z0-9_]{2,24}$/;
 
@@ -24,6 +30,8 @@ export interface NoteInput {
   from: { name: string; handle: string };
   // true: the email goes only to the sender's own inbox (see index.ts).
   test: boolean;
+  // "newcomers" when the caller leaves it out.
+  audience: Audience;
 }
 
 // The note exactly as typed, give or take the ends: Windows line breaks
@@ -33,13 +41,32 @@ export function cleanNote(value: string): string {
   return value.replace(/\r\n?/g, "\n").trim();
 }
 
+// A count of logs in words: "1 piece", "22 pieces", "0 pieces".
+export function piecesText(count: number): string {
+  return `${count} ${count === 1 ? "piece" : "pieces"}`;
+}
+
 // "{name}" in the note becomes the recipient's first name: the first word
 // of their profile name. With no name, "{name}" goes along with the space
-// before it, so "Hi {name}!" reads "Hi!". The same rule is in
-// src/app/actions.ts for the push.
-export function personalize(note: string, profileName: string | null | undefined): string {
+// before it, so "Hi {name}!" reads "Hi!". "{pieces}" becomes their own
+// count of logs, private ones included, as "22 pieces" or "1 piece". The
+// same rule is in src/app/actions.ts for the push.
+export function personalize(
+  note: string,
+  profileName: string | null | undefined,
+  pieces: number,
+): string {
+  // The count goes in first, so a name that happens to read "{pieces}"
+  // stays as typed. Both go in through a function, so a "$&" in a name is
+  // text and not a replacement pattern.
+  // "{pieces}" already says "pieces", so a "pieces" or "piece" typed
+  // right after it goes with it: "{pieces} pieces" reads "22 pieces", not
+  // "22 pieces pieces".
+  const counted = note.replace(/\{pieces\}(?:[ \t]+pieces?\b)?/g, () => piecesText(pieces));
   const first = (profileName ?? "").trim().split(/\s+/)[0] ?? "";
-  return first ? note.replace(/\{name\}/g, first) : note.replace(/[ \t]*\{name\}/g, "");
+  return first
+    ? counted.replace(/\{name\}/g, () => first)
+    : counted.replace(/[ \t]*\{name\}/g, "");
 }
 
 export function parseNoteInput(raw: unknown): NoteInput | { error: string } {
@@ -51,6 +78,15 @@ export function parseNoteInput(raw: unknown): NoteInput | { error: string } {
   // the whole list.
   if (input.test !== undefined && typeof input.test !== "boolean") {
     return { error: "bad-test" };
+  }
+
+  // Left out, it is the welcome to newcomers, as it was before there were
+  // two. Anything else but the two names is refused.
+  if (
+    input.audience !== undefined &&
+    !AUDIENCES.includes(input.audience as Audience)
+  ) {
+    return { error: "bad-audience" };
   }
 
   if (!Array.isArray(input.userIds)) return { error: "no-recipients" };
@@ -84,5 +120,6 @@ export function parseNoteInput(raw: unknown): NoteInput | { error: string } {
     body,
     from: { name, handle: from.handle },
     test: input.test === true,
+    audience: (input.audience as Audience | undefined) ?? "newcomers",
   };
 }
