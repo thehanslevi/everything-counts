@@ -18,6 +18,12 @@ import type { AppNotification } from "@/lib/data/types";
 const FOUNDER_HANDLE = "hrlevinson";
 
 export const dynamic = "force-dynamic";
+// The founder's tools on this page run as its server actions, and the note
+// to newcomers emails one person at a time: an address lookup, the send and
+// a 0.6 s pause, about a second each, so about 50 people a minute. 300 s is
+// the project's own default (Fluid compute is on), stated here so the page
+// can't fall below it; at that pace one press reaches about 250 people.
+export const maxDuration = 300;
 
 // Relative time, terse: 5m, 3h, 2d, 1w.
 function ago(iso: string): string {

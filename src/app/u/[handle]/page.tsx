@@ -140,14 +140,15 @@ export default async function ProfilePage({
       )}
 
       {isSelf && (
-        // The weekly email's switch: its state, and one button to change it.
+        // The email switch (the weekly email and the founder's note share it):
+        // its state, and one button to change it.
         <form
           action={toggleWeeklyEmail}
           className="mt-4 flex items-center justify-between gap-4 border-[3px] border-foreground bg-paper px-5 py-3"
         >
           <input type="hidden" name="on" value={String(!weeklyOn)} />
           <span className="font-structural text-xs font-bold uppercase tracking-[0.14em] text-foreground/70">
-            Weekly email{" "}
+            Email{" "}
             <span className={weeklyOn ? "text-accent" : "text-foreground/40"}>
               {weeklyOn ? "On" : "Off"}
             </span>

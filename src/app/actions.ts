@@ -32,6 +32,7 @@ import { shareSigValid, shareUrl } from "@/lib/share";
 import { afterLogLine, localMonthStart } from "@/lib/afterlog";
 import { sendWeekly } from "@/lib/weekly";
 import { refreshCatalog } from "@/lib/catalog";
+import { noteEmailFell, noteSentMessage, noteTestMessage, sendNoteEmail } from "@/lib/note";
 import { isTimeZone } from "@/lib/dates";
 
 const SITE_URL = "https://everything-counts.vercel.app";
@@ -68,6 +69,9 @@ export interface ActionResult {
   error?: string;
   log?: Log;
   message?: string; // a plain outcome to show, when there is one
+  // Done, but not all of it: show the message as a warning (the note to
+  // newcomers, when the push went and some or all of the email didn't).
+  partial?: boolean;
   // After a save: the line for under the card, and the link to share it by.
   after?: { line: string | null; shareUrl: string | null };
 }
@@ -790,16 +794,28 @@ export async function sendTestWeekly(): Promise<ActionResult> {
   };
 }
 
-// Founder-only: one note, pushed to the phones of everyone who signed up and
-// hasn't logged a piece yet. Tapping it opens the first-log page. Their
-// phones only: nobody without notifications on hears anything.
+// The note to newcomers, checked once for both buttons. `note` is the text
+// as typed (line breaks kept, ends trimmed) for the email; `push` is the
+// same on one line, for a lock screen.
+function readNewcomerNote(
+  message: string,
+): { note: string; push: string } | { error: string } {
+  const note = message.replace(/\r\n?/g, "\n").trim();
+  if (!note) return { error: "Write the note first." };
+  if (note.length > 240) return { error: "Keep it under 240 characters." };
+  return { note, push: note.replace(/\s+/g, " ") };
+}
+
+// Founder-only: one note to everyone who signed up and hasn't logged a piece
+// yet. It goes two ways at once: a push to the phones that have
+// notifications on, and an email to every inbox (send-note, which leaves out
+// anyone who turned email off). Both open the first-log page.
 export async function sendNoteToNewcomers(message: string): Promise<ActionResult> {
   const { profile } = await getSessionProfile();
   if (!profile) return { ok: false, error: "Sign in first." };
   if (profile.handle !== FOUNDER_HANDLE) return { ok: false, error: "Not available." };
-  const body = message.replace(/\s+/g, " ").trim();
-  if (!body) return { ok: false, error: "Write the note first." };
-  if (body.length > 240) return { ok: false, error: "Keep it under 240 characters." };
+  const read = readNewcomerNote(message);
+  if ("error" in read) return { ok: false, error: read.error };
   if (!process.env.PUSH_SECRET) {
     return { ok: false, error: "PUSH_SECRET is not set on this deployment." };
   }
@@ -809,22 +825,60 @@ export async function sendNoteToNewcomers(message: string): Promise<ActionResult
     return { ok: false, error: "Couldn't check who has logged. Nothing was sent." };
   }
   const ids = newcomers.filter((id) => id !== profile.id);
-  let phones = 0;
-  for (const id of ids) {
-    const result = await notify({
-      recipientUserId: id,
-      title: profile.name || `@${profile.handle}`,
-      body,
-      url: "/log?new=1",
-    });
-    phones += result?.sent ?? 0;
-  }
+
+  const pushAll = async () => {
+    let phones = 0;
+    for (const id of ids) {
+      const result = await notify({
+        recipientUserId: id,
+        title: profile.name || `@${profile.handle}`,
+        body: read.push,
+        url: "/log?new=1",
+      });
+      phones += result?.sent ?? 0;
+    }
+    return phones;
+  };
+  // Neither waits on the other, and neither can stop the other: notify and
+  // sendNoteEmail never throw. If the email function isn't there, the push
+  // still goes and the message says the email didn't.
+  const [phones, email] = await Promise.all([
+    pushAll(),
+    sendNoteEmail({
+      userIds: ids,
+      body: read.note,
+      from: { name: profile.name, handle: profile.handle },
+    }),
+  ]);
   return {
     ok: true,
-    message: `Sent to ${phones} phone${phones === 1 ? "" : "s"} (${ids.length} ${
-      ids.length === 1 ? "person" : "people"
-    } without a log).`,
+    message: noteSentMessage(phones, email),
+    partial: noteEmailFell(email),
   };
+}
+
+// Founder-only: the note's email, to your own inbox and nobody else's, so
+// you see what newcomers will before they do. Nothing is pushed.
+export async function sendTestNoteEmail(message: string): Promise<ActionResult> {
+  const { profile } = await getSessionProfile();
+  if (!profile) return { ok: false, error: "Sign in first." };
+  if (profile.handle !== FOUNDER_HANDLE) return { ok: false, error: "Not available." };
+  const read = readNewcomerNote(message);
+  if ("error" in read) return { ok: false, error: read.error };
+  if (!process.env.PUSH_SECRET) {
+    return { ok: false, error: "PUSH_SECRET is not set on this deployment." };
+  }
+
+  const email = await sendNoteEmail({
+    userIds: [profile.id],
+    body: read.note,
+    from: { name: profile.name, handle: profile.handle },
+    test: true,
+  });
+  const outcome = noteTestMessage(email);
+  return outcome.ok
+    ? { ok: true, message: outcome.text }
+    : { ok: false, error: outcome.text };
 }
 
 // Founder-only: refresh the title catalog from every feed now, ignoring the

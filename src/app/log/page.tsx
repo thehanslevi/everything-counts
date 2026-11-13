@@ -56,12 +56,13 @@ export default async function LogPage({
   const piece = shared ? undefined : handPiece(params);
 
   // Signed out: through sign-in and straight back here, with the link and
-  // whatever came with it intact.
+  // whatever came with it intact, the first-log prompt (?new=1) included.
   if (!profile) {
     if (hasSession) redirect("/welcome");
     const back = new URLSearchParams(
       shared ? { url: shared, ...details } : piece ? pieceParams(piece) : {},
     );
+    if (isNew) back.set("new", "1");
     const dest = back.size > 0 ? `/log?${back}` : "/log";
     redirect(`/signin?next=${encodeURIComponent(dest)}`);
   }
