@@ -803,7 +803,22 @@ function readNewcomerNote(
   const note = message.replace(/\r\n?/g, "\n").trim();
   if (!note) return { error: "Write the note first." };
   if (note.length > NOTE_MAX) return { error: `Keep it under ${NOTE_MAX} characters.` };
-  return { note, push: pushOpening(note.replace(/\s+/g, " ")) };
+  return { note, push: note.replace(/\s+/g, " ") };
+}
+
+// "{name}" becomes the recipient's first name, or goes (with the space
+// before it) when they have none: "Hi {name}!" reads "Hi!". The same rule
+// is personalize() in supabase/functions/send-note/input.ts for the email.
+function personalize(note: string, profileName: string | null | undefined): string {
+  const first = (profileName ?? "").trim().split(/\s+/)[0] ?? "";
+  return first ? note.replace(/\{name\}/g, first) : note.replace(/[ \t]*\{name\}/g, "");
+}
+
+async function profileNames(ids: string[]): Promise<Map<string, string | null>> {
+  if (ids.length === 0) return new Map();
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("id, name").in("id", ids);
+  return new Map((data ?? []).map((p) => [p.id as string, (p.name as string | null) ?? null]));
 }
 
 // The email carries the whole note (send-note's MAX_NOTE matches this). A
@@ -839,12 +854,13 @@ export async function sendNoteToNewcomers(message: string): Promise<ActionResult
   const ids = newcomers.filter((id) => id !== profile.id);
 
   const pushAll = async () => {
+    const names = await profileNames(ids);
     let phones = 0;
     for (const id of ids) {
       const result = await notify({
         recipientUserId: id,
         title: profile.name || `@${profile.handle}`,
-        body: read.push,
+        body: pushOpening(personalize(read.push, names.get(id))),
         url: "/log?new=1",
       });
       phones += result?.sent ?? 0;

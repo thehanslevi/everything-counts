@@ -42,7 +42,7 @@
 // rule (the founder has logged), and its subject starts "Test:".
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { parseNoteInput, SENDER_HANDLE } from "./input.ts";
+import { parseNoteInput, personalize, SENDER_HANDLE } from "./input.ts";
 import { renderNote } from "./render.ts";
 
 const PUSH_SECRET = Deno.env.get("PUSH_SECRET");
@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
     // all, private ones included, means they have logged.
     supabase
       .from("profiles")
-      .select("id, logs(user_id)")
+      .select("id, name, logs(user_id)")
       .in("id", ids)
       .limit(1, { referencedTable: "logs" }),
     supabase.from("email_prefs").select("user_id, weekly, token").in("user_id", ids),
@@ -220,6 +220,10 @@ Deno.serve(async (req) => {
   const lookupError = profilesRes.error ?? prefsRes.error;
   if (lookupError) return json({ ok: false, error: lookupError.message }, 500);
 
+  const nameOf = new Map(
+    ((profilesRes.data ?? []) as unknown as { id: string; name: string | null }[])
+      .map((p) => [p.id, p.name] as const),
+  );
   const hasLogged = new Map(
     ((profilesRes.data ?? []) as unknown as { id: string; logs: unknown[] | null }[])
       .map((p) => [p.id, (p.logs ?? []).length > 0] as const),
@@ -281,7 +285,7 @@ Deno.serve(async (req) => {
     }
 
     const { subject, html, text } = renderNote({
-      note: input.body,
+      note: personalize(input.body, nameOf.get(id)),
       from: input.from,
       site: SITE,
       mastheadUrl: `${SITE}/email/masthead.png`,

@@ -33,6 +33,15 @@ export function cleanNote(value: string): string {
   return value.replace(/\r\n?/g, "\n").trim();
 }
 
+// "{name}" in the note becomes the recipient's first name: the first word
+// of their profile name. With no name, "{name}" goes along with the space
+// before it, so "Hi {name}!" reads "Hi!". The same rule is in
+// src/app/actions.ts for the push.
+export function personalize(note: string, profileName: string | null | undefined): string {
+  const first = (profileName ?? "").trim().split(/\s+/)[0] ?? "";
+  return first ? note.replace(/\{name\}/g, first) : note.replace(/[ \t]*\{name\}/g, "");
+}
+
 export function parseNoteInput(raw: unknown): NoteInput | { error: string } {
   if (!raw || typeof raw !== "object") return { error: "bad-body" };
   const input = raw as Record<string, unknown>;

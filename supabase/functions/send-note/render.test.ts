@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COPY, renderNote } from "./render.ts";
-import { MAX_NOTE, MAX_RECIPIENTS, parseNoteInput, SENDER_HANDLE } from "./input.ts";
+import { MAX_NOTE, MAX_RECIPIENTS, parseNoteInput, personalize, SENDER_HANDLE } from "./input.ts";
 
 const LONG_WORD = "Supercalifragilistic".repeat(6); // 120 characters, no break
 const NOTE =
@@ -148,4 +148,13 @@ test("input: refuses what it can't send safely", () => {
   assert.ok(!("error" in twice) && twice.userIds.length === 1);
   const asTest = parseNoteInput({ ...good, test: true });
   assert.ok(!("error" in asTest) && asTest.test === true);
+});
+
+test("{name} becomes the first name, or goes with its space when there is none", () => {
+  const note = "Hi {name}! A note.\n\nHannah";
+  assert.equal(personalize(note, "Jane Q. Doe"), "Hi Jane! A note.\n\nHannah");
+  assert.equal(personalize(note, "  "), "Hi! A note.\n\nHannah");
+  assert.equal(personalize(note, null), "Hi! A note.\n\nHannah");
+  assert.equal(personalize("No placeholder here.", "Jane"), "No placeholder here.");
+  assert.equal(personalize("{name}, {name}!", "Ana"), "Ana, Ana!");
 });
