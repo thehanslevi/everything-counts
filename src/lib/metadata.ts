@@ -38,7 +38,7 @@ const FORM_GUESSES: [RegExp, string][] = [
   [/poetryfoundation\.org|poets\.org|poetry/i, "poem"],
   [/newyorker\.com\/(magazine|culture|books)|theatlantic\.com\/(ideas|magazine)/i, "essay"],
   [/aeon\.co|thepointmag\.com|noemamag\.com|laphamsquarterly\.org/i, "essay"],
-  [/substack\.com|beehiiv\.com|buttondown\.(?:email|com)/i, "newsletter"],
+  [/substack\.com/i, "essay"],
   [/\.(?:blogspot|wordpress|tumblr)\.com|\/blogs?\//i, "blog"],
 ];
 

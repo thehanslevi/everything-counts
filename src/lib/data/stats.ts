@@ -13,7 +13,6 @@ const ESTIMATED_MINUTES: Record<Form, number> = {
   essay: 15,
   article: 8,
   blog: 7,
-  newsletter: 10,
   chapter: 25,
   criticism: 15,
   poem: 4,
