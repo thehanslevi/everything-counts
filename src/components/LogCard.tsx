@@ -21,6 +21,8 @@ import { formatDay } from "@/lib/dates";
 const FORM_COLORS: Record<Form, string> = {
   essay: "bg-accent",
   article: "bg-accent-3",
+  blog: "bg-accent",
+  newsletter: "bg-accent-2",
   report: "bg-accent-2",
   review: "bg-accent-2",
   poem: "bg-accent-2",

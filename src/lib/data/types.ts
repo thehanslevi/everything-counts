@@ -11,8 +11,10 @@
 export const FORMS = [
   "essay",
   "article",
+  "blog",
   "chapter",
   "criticism",
+  "newsletter",
   "poem",
   "report",
   "review",
