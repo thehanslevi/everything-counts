@@ -22,8 +22,10 @@ const FORM_COLORS: Record<Form, string> = {
   essay: "bg-accent",
   article: "bg-accent-3",
   report: "bg-accent-2",
+  review: "bg-accent-2",
   poem: "bg-accent-2",
   chapter: "bg-accent-3",
+  criticism: "bg-accent-3",
   "short story": "bg-accent",
   other: "bg-foreground",
 };

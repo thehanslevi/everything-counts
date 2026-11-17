@@ -12,8 +12,10 @@ export const FORMS = [
   "essay",
   "article",
   "chapter",
+  "criticism",
   "poem",
   "report",
+  "review",
   "short story",
   "other",
 ] as const;

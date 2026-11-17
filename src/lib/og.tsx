@@ -112,8 +112,10 @@ const FORM_HEX: Record<string, string> = {
   essay: RED,
   article: BLUE,
   report: MAG,
+  review: MAG,
   poem: MAG,
   chapter: BLUE,
+  criticism: BLUE,
   "short story": RED,
   other: INK,
 };

@@ -354,7 +354,10 @@ function linkLabel(url: string, all: string[]): string {
 
 function plural(form: string, count: number): string {
   if (count === 1) return form;
-  return form === "short story" ? "short stories" : `${form}s`;
+  if (form === "short story") return "short stories";
+  // Criticism has no plural: "3 criticism", as a tally reads.
+  if (form === "criticism") return form;
+  return `${form}s`;
 }
 
 // Up to four pieces this person chose to put first, in the order they chose

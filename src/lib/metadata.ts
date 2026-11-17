@@ -31,6 +31,10 @@ const FORM_GUESSES: [RegExp, string][] = [
   [/arxiv\.org|ssrn\.com|nber\.org|biorxiv\.org|osf\.io/i, "report"],
   [/rand\.org|brookings\.edu|urban\.org|mdrc\.org|pewresearch\.org/i, "report"],
   [/\.pdf($|\?)/i, "report"],
+  // A reviews section in the address ("/reviews/albums/…", "/book-review/…").
+  // Ahead of the poem rule, so a review of a poetry book is a review.
+  [/\/(?:[a-z]+-)?reviews?\//i, "review"],
+  [/\/criticism\//i, "criticism"],
   [/poetryfoundation\.org|poets\.org|poetry/i, "poem"],
   [/newyorker\.com\/(magazine|culture|books)|theatlantic\.com\/(ideas|magazine)/i, "essay"],
   [/aeon\.co|thepointmag\.com|noemamag\.com|laphamsquarterly\.org/i, "essay"],
