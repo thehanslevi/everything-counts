@@ -56,13 +56,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Share-sheet hand-off: the share extension opens
         // everythingcounts://log?url=<shared url>&title=…&author=…&source=…&image=…
         // (the details are there when the page was shared from Safari). Route
-        // it into the webview as /log?… so the form opens filled in.
+        // it into the webview as /log?… so the form opens filled in. Shared
+        // text with no link in it arrives as a title alone, or as nothing at
+        // all (everythingcounts://log), and the form opens with what there is.
         if url.scheme == "everythingcounts" {
             let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let value = { (name: String) -> String? in
                 items.first(where: { $0.name == name })?.value
             }
-            if let shared = value("url"), !shared.isEmpty {
+            let hasLink = !(value("url") ?? "").isEmpty
+            let hasTitle = !(value("title") ?? "").isEmpty
+            if hasLink || hasTitle || url.host?.lowercased() == "log" {
                 var query: [String] = []
                 for name in ["url", "title", "author", "source", "image"] {
                     if let v = value(name), !v.isEmpty,
@@ -70,7 +74,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         query.append("\(name)=\(encoded)")
                     }
                 }
-                if let target = URL(string: "https://everything-counts.vercel.app/log?" + query.joined(separator: "&")),
+                let address = "https://everything-counts.vercel.app/log" + (query.isEmpty ? "" : "?" + query.joined(separator: "&"))
+                if let target = URL(string: address),
                    let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
                     #if DEBUG
                     NSLog("EC share route: %@", target.absoluteString)
