@@ -749,6 +749,12 @@ export function itemForm(url: string, title: string, labels: string[], image: st
   const parts = u.pathname.toLowerCase().split("/").filter(Boolean);
   const folders = parts.slice(0, -1);
   const last = parts[parts.length - 1] ?? "";
+  // A reviews or criticism section: Pitchfork's /reviews/albums/, WIRED's
+  // /review/, n+1's /issue-52/reviews/, The Point's /criticism/. Ahead of the
+  // poem rules, so a review of a book of poems is a review. The log form
+  // guesses the same way (src/lib/metadata.ts).
+  if (folders.some((s) => /^(?:[a-z]+-)?reviews?$/.test(s))) return "review";
+  if (folders.includes("criticism")) return "criticism";
   if (folders.some((s) => /^(?:poetry|poems?)$/.test(s))) return "poem";
   if (folders.some((s) => /^(?:fiction|fiction-drama|short-fiction|short-stor(?:y|ies))$/.test(s))) return "short story";
   // A slug that is the poem's own ("…-a-poem", "two-poems", "poems-by-…"), not one about poems ("the-best-war-poems").
