@@ -47,6 +47,11 @@ body {
      (viewport-fit=cover); resolves to 0 in ordinary browsers. */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  /* No word is ever split with a hyphen, anywhere: a word that doesn't fit
+     moves whole to the next line. This also ignores the soft hyphens some
+     publications bury in their titles. */
+  -webkit-hyphens: none;
+  hyphens: none;
 }
 
 /* No gray tap flash on iOS — the poster provides its own affordances. */

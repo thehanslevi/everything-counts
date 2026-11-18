@@ -115,7 +115,7 @@ export function LogCard({
         </div>
 
         <div className="p-6 sm:p-7">
-          <h3 className="font-structural text-[1.5rem] font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-[1.85rem]">
+          <h3 className="font-structural text-[1.5rem] font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground break-words sm:text-[1.85rem]">
             {log.title}
           </h3>
 

@@ -29,7 +29,7 @@ export function CatalogView({
           </span>
         </div>
         <div className="p-6 sm:p-8">
-          <h1 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-4xl">
+          <h1 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground break-words sm:text-4xl">
             {catalog.name}
           </h1>
           <p className="mt-4 border-t-2 border-foreground pt-2 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/75">

@@ -165,7 +165,7 @@ export default async function WorkPage({
         </div>
 
         <div className="p-6 sm:p-8">
-          <h1 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground hyphens-auto break-words sm:text-4xl">
+          <h1 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground break-words sm:text-4xl">
             {work.title}
           </h1>
 

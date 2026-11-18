@@ -107,7 +107,7 @@ export default async function Search({
                           </span>
                         </div>
                         <div className="px-4 py-3">
-                          <span className="font-structural text-base font-extrabold uppercase leading-tight tracking-[-0.01em] text-foreground hyphens-auto break-words">
+                          <span className="font-structural text-base font-extrabold uppercase leading-tight tracking-[-0.01em] text-foreground break-words">
                             {log.title}
                           </span>
                           {(log.author || log.source) && (
