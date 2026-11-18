@@ -79,7 +79,15 @@ export function Words({ text, fit = false }: { text: string; fit?: boolean }) {
       // The whole title, to see how its lines fall at each size.
       const whole = document.createElement("span");
       whole.style.cssText = "display:block;white-space:normal";
-      whole.textContent = text;
+      for (const token of tokens) {
+        if (/^\s+$/.test(token)) {
+          whole.append(token);
+        } else {
+          const piece = document.createElement("span");
+          piece.textContent = token;
+          whole.appendChild(piece);
+        }
+      }
       probe.appendChild(whole);
       host.appendChild(probe);
 
@@ -136,7 +144,7 @@ export function Words({ text, fit = false }: { text: string; fit?: boolean }) {
         ? before
         : next,
     );
-  }, [tokens, text, fit]);
+  }, [tokens, fit]);
 
   useLayoutEffect(() => {
     measure();
@@ -207,18 +215,19 @@ function pieces(text: string): string[] {
     .filter(Boolean);
 }
 
-// How much of the column each line of a block fills, top to bottom.
+// How much of the column each line of a block fills, top to bottom. The
+// block holds one span to a piece. Read from where the layout put each one,
+// not from where it shows on screen: feed cards sit at a slight tilt, and on
+// screen no two words of a line are level.
 function lineWidths(block: HTMLElement): number[] {
-  const range = document.createRange();
-  range.selectNodeContents(block);
   const lines = new Map<number, [number, number]>();
-  for (const rect of range.getClientRects()) {
-    if (rect.width === 0) continue;
-    const top = Math.round(rect.top);
-    const line = lines.get(top);
-    lines.set(top, [
-      Math.min(line?.[0] ?? rect.left, rect.left),
-      Math.max(line?.[1] ?? rect.right, rect.right),
+  for (const piece of block.children) {
+    if (!(piece instanceof HTMLElement) || piece.offsetWidth === 0) continue;
+    const [left, right] = [piece.offsetLeft, piece.offsetLeft + piece.offsetWidth];
+    const line = lines.get(piece.offsetTop);
+    lines.set(piece.offsetTop, [
+      Math.min(line?.[0] ?? left, left),
+      Math.max(line?.[1] ?? right, right),
     ]);
   }
   return [...lines.entries()]
