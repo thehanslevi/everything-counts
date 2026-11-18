@@ -4,6 +4,7 @@ import { formColor } from "@/components/LogCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
+import { Words } from "@/components/Words";
 
 export const metadata = { title: "Search — Everything Counts" };
 
@@ -108,7 +109,7 @@ export default async function Search({
                         </div>
                         <div className="px-4 py-3">
                           <span className="font-structural text-base font-extrabold uppercase leading-tight tracking-[-0.01em] text-foreground break-words">
-                            {log.title}
+                            <Words text={log.title} />
                           </span>
                           {(log.author || log.source) && (
                             <span className="mt-1 block font-structural text-[0.7rem] font-medium uppercase tracking-[0.1em] text-foreground/60">

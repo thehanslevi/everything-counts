@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Form, Log, Profile } from "@/lib/data/types";
 import { Avatar } from "@/components/Avatar";
 import { formatDay } from "@/lib/dates";
+import { Words } from "@/components/Words";
 
 // The log card: the single repeating unit across the product. Loud Japanese-
 // poster treatment — thick ink frames on a saturated field, a clashing color
@@ -116,7 +117,7 @@ export function LogCard({
 
         <div className="p-6 sm:p-7">
           <h3 className="font-structural text-[1.5rem] font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground break-words sm:text-[1.85rem]">
-            {log.title}
+            <Words text={log.title} fit />
           </h3>
 
           {byline && (

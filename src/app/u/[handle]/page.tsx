@@ -26,6 +26,7 @@ import { monthKeyIn } from "@/lib/dates";
 import { getTimeZone } from "@/lib/timezone";
 import { slugify, sourceHref } from "@/lib/slug";
 import type { Log, Profile } from "@/lib/data/types";
+import { Words } from "@/components/Words";
 
 export const dynamic = "force-dynamic";
 
@@ -406,11 +407,11 @@ function Favorites({ logs }: { logs: Log[] }) {
                 </span>
               )}
               <span className="flex flex-1 flex-col p-3">
-                <span className="line-clamp-3 break-words font-structural text-sm font-black uppercase leading-[1.05] tracking-[-0.01em] text-foreground">
-                  {log.title}
+                <span className="break-words font-structural text-sm font-black uppercase leading-[1.05] tracking-[-0.01em] text-foreground">
+                  <Words text={log.title} />
                 </span>
                 {log.source && (
-                  <span className="mt-2 truncate font-structural text-[0.6rem] font-bold uppercase tracking-[0.1em] text-foreground/55">
+                  <span className="mt-2 break-words font-structural text-[0.6rem] font-bold uppercase leading-[1.3] tracking-[0.1em] text-foreground/55">
                     {log.source}
                   </span>
                 )}

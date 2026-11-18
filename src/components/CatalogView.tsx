@@ -3,6 +3,7 @@ import type { Catalog } from "@/lib/data/logs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Avatar } from "@/components/Avatar";
 import { formColor } from "@/components/LogCard";
+import { Words } from "@/components/Words";
 
 // Everything logged here from one publication, or by one author: the pieces,
 // most-read first, then the people who read them. The same page for both;
@@ -30,7 +31,7 @@ export function CatalogView({
         </div>
         <div className="p-6 sm:p-8">
           <h1 className="font-structural text-3xl font-black uppercase leading-[1.02] tracking-[-0.01em] text-foreground break-words sm:text-4xl">
-            {catalog.name}
+            <Words text={catalog.name} fit />
           </h1>
           <p className="mt-4 border-t-2 border-foreground pt-2 font-structural text-xs font-bold uppercase tracking-[0.1em] text-foreground/75">
             <span className="text-accent">{pieces}</span>{" "}
@@ -61,11 +62,11 @@ export function CatalogView({
                       {log.form}
                     </span>
                     <span className="min-w-0 px-4 py-3">
-                      <span className="block truncate font-structural text-sm font-black uppercase tracking-[-0.01em] text-foreground">
-                        {log.title}
+                      <span className="block break-words font-structural text-sm font-black uppercase leading-[1.15] tracking-[-0.01em] text-foreground">
+                        <Words text={log.title} />
                       </span>
                       {second && (
-                        <span className="block truncate font-structural text-[0.65rem] font-bold uppercase tracking-[0.1em] text-foreground/55">
+                        <span className="mt-1 block break-words font-structural text-[0.65rem] font-bold uppercase leading-[1.3] tracking-[0.1em] text-foreground/55">
                           {second}
                         </span>
                       )}
